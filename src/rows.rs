@@ -1,6 +1,8 @@
 use super::SparseBinMat;
 
 /// An iterator over the rows of matrix.
+///
+/// See the [`rows`](SparseBinMat::rows) method.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rows<'a> {
     matrix: &'a SparseBinMat,
