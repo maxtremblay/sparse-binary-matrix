@@ -1,15 +1,15 @@
-use super::Matrix;
+use super::SparseBinMat;
 
 /// An iterator over the rows of matrix.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rows<'a> {
-    matrix: &'a Matrix,
+    matrix: &'a SparseBinMat,
     front: usize,
     back: usize,
 }
 
 impl<'a> Rows<'a> {
-    pub(super) fn from(matrix: &'a Matrix) -> Self {
+    pub(super) fn from(matrix: &'a SparseBinMat) -> Self {
         Self {
             matrix,
             front: 0,
@@ -50,7 +50,7 @@ mod test {
     #[test]
     fn checks_iterator() {
         let rows = vec![vec![0, 1, 2], vec![2, 3], vec![0, 3], vec![1, 2, 3]];
-        let matrix = Matrix::new(4, rows.clone());
+        let matrix = SparseBinMat::new(4, rows.clone());
         let mut iter = Rows::from(&matrix);
 
         assert_eq!(iter.next(), Some(rows[0].as_slice()));
@@ -62,7 +62,7 @@ mod test {
 
     #[test]
     fn checks_iterator_for_empty_matrix() {
-        let matrix = Matrix::empty();
+        let matrix = SparseBinMat::empty();
         let mut iter = Rows::from(&matrix);
         assert_eq!(iter.next(), None);
     }
@@ -70,7 +70,7 @@ mod test {
     #[test]
     fn reverse_checks_iterator() {
         let rows = vec![vec![0, 1, 2], vec![2, 3], vec![0, 3], vec![1, 2, 3]];
-        let matrix = Matrix::new(4, rows.clone());
+        let matrix = SparseBinMat::new(4, rows.clone());
         let mut iter = Rows::from(&matrix).rev();
 
         assert_eq!(iter.next(), Some(rows[3].as_slice()));
@@ -83,7 +83,7 @@ mod test {
     #[test]
     fn bothway_checks_iterator() {
         let rows = vec![vec![0, 1, 2], vec![2, 3], vec![0, 3], vec![1, 2, 3]];
-        let matrix = Matrix::new(4, rows.clone());
+        let matrix = SparseBinMat::new(4, rows.clone());
         let mut iter = Rows::from(&matrix);
 
         assert_eq!(iter.next(), Some(rows[0].as_slice()));

@@ -1,5 +1,5 @@
 use super::rows_bitwise_sum;
-use super::Matrix;
+use super::SparseBinMat;
 
 pub(super) struct GaussJordan {
     number_of_columns: usize,
@@ -8,7 +8,7 @@ pub(super) struct GaussJordan {
 }
 
 impl GaussJordan {
-    pub(super) fn new(matrix: &Matrix) -> Self {
+    pub(super) fn new(matrix: &SparseBinMat) -> Self {
         Self {
             number_of_columns: matrix.number_of_columns(),
             active_column: 0,
@@ -20,11 +20,11 @@ impl GaussJordan {
         self.unsorted_echeloned_rows().len()
     }
 
-    pub(super) fn echelon_form(self) -> Matrix {
+    pub(super) fn echelon_form(self) -> SparseBinMat {
         let number_of_columns = self.number_of_columns;
         let mut rows = self.unsorted_echeloned_rows();
         rows.sort_by_key(|row| row[0]);
-        Matrix::new(number_of_columns, rows)
+        SparseBinMat::new(number_of_columns, rows)
     }
 
     fn unsorted_echeloned_rows(mut self) -> Vec<Vec<usize>> {
@@ -94,17 +94,17 @@ mod test {
 
     #[test]
     fn ranks() {
-        let matrix = Matrix::empty();
+        let matrix = SparseBinMat::empty();
         let rank = GaussJordan::new(&matrix).rank();
         assert_eq!(rank, 0);
 
         let rows = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4], vec![4, 0]];
-        let matrix = Matrix::new(5, rows);
+        let matrix = SparseBinMat::new(5, rows);
         let rank = GaussJordan::new(&matrix).rank();
         assert_eq!(rank, 4);
 
         let rows = vec![vec![0, 1], vec![1, 2], vec![0, 1, 3]];
-        let matrix = Matrix::new(4, rows);
+        let matrix = SparseBinMat::new(4, rows);
         let rank = GaussJordan::new(&matrix).rank();
         assert_eq!(rank, 3);
 
@@ -116,7 +116,7 @@ mod test {
             vec![0, 4, 6],
             vec![5, 6],
         ];
-        let matrix = Matrix::new(7, rows);
+        let matrix = SparseBinMat::new(7, rows);
         let rank = GaussJordan::new(&matrix).rank();
         assert_eq!(rank, 4);
     }
@@ -124,7 +124,7 @@ mod test {
     #[test]
     fn do_nothing_if_already_in_echelon_form() {
         let rows = vec![vec![0, 1, 2], vec![1, 2, 3], vec![3, 4, 5], vec![5, 6]];
-        let matrix = Matrix::new(7, rows);
+        let matrix = SparseBinMat::new(7, rows);
         let echelon_form = GaussJordan::new(&matrix).echelon_form();
         assert_eq!(echelon_form, matrix);
     }
@@ -139,9 +139,9 @@ mod test {
             vec![0, 4, 6],
             vec![5, 6],
         ];
-        let matrix = Matrix::new(7, rows);
+        let matrix = SparseBinMat::new(7, rows);
         let echelon_form = GaussJordan::new(&matrix).echelon_form();
-        let expected = Matrix::new(
+        let expected = SparseBinMat::new(
             7,
             vec![vec![0, 1, 2], vec![1, 2, 3], vec![3, 4, 6], vec![5, 6]],
         );

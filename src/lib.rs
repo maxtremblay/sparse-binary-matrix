@@ -26,13 +26,13 @@ type BinaryNumber = u8;
 
 /// A sparse implementation of a binary matrix.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct Matrix {
+pub struct SparseBinMat {
     row_ranges: Vec<usize>,
     column_indices: Vec<usize>,
     number_of_columns: usize,
 }
 
-impl Matrix {
+impl SparseBinMat {
     /// Creates a new matrix with the given number of columns
     /// and list of rows.
     ///
@@ -42,8 +42,8 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
-    /// let matrix = Matrix::new(4, vec![vec![0, 1, 2], vec![0, 2, 3]]);
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(4, vec![vec![0, 1, 2], vec![0, 2, 3]]);
     ///
     /// assert_eq!(matrix.number_of_rows(), 2);
     /// assert_eq!(matrix.number_of_columns(), 4);
@@ -56,8 +56,8 @@ impl Matrix {
     /// the number of columns.
     ///
     /// ```should_panic
-    /// # use sparse_binary_matrix::Matrix;
-    /// let matrix = Matrix::new(2, vec![vec![1, 2], vec![3, 0]]);
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(2, vec![vec![1, 2], vec![3, 0]]);
     /// ```
     pub fn new(number_of_columns: usize, rows: Vec<Vec<usize>>) -> Self {
         assert_rows_are_inbound(number_of_columns, &rows);
@@ -74,11 +74,11 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
-    /// let matrix = Matrix::identity(5);
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::identity(5);
     ///
     /// let identity_rows = (0..5).map(|x| vec![x]).collect();
-    /// let identity_matrix = Matrix::new(5, identity_rows);
+    /// let identity_matrix = SparseBinMat::new(5, identity_rows);
     ///
     /// assert_eq!(matrix, identity_matrix);
     /// ```
@@ -97,14 +97,14 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
-    /// let matrix = Matrix::empty();
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::empty();
     ///
     /// assert_eq!(matrix.number_of_rows(), 0);
     /// assert_eq!(matrix.number_of_columns(), 0); assert_eq!(matrix.number_of_elements(), 0);
     /// // Note that these are not equal since new preallocate some space
     /// // to store the data.
-    /// assert_ne!(Matrix::new(0, Vec::new()), Matrix::empty());
+    /// assert_ne!(SparseBinMat::new(0, Vec::new()), SparseBinMat::empty());
     ///
     /// // To test for emptyness, you should prefer the following.
     /// assert!(matrix.is_empty());
@@ -161,9 +161,9 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     /// let rows = vec![vec![0, 1], vec![1, 2]];
-    /// let matrix = Matrix::new(3, rows);
+    /// let matrix = SparseBinMat::new(3, rows);
     ///
     /// assert_eq!(matrix.get(0, 0), Some(1));
     /// assert_eq!(matrix.get(1, 0), Some(0));
@@ -180,9 +180,9 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     /// let rows = vec![vec![0, 1], vec![1, 2]];
-    /// let matrix = Matrix::new(3, rows);
+    /// let matrix = SparseBinMat::new(3, rows);
     ///
     /// assert_eq!(matrix.is_zero_at(0, 0), Some(false));
     /// assert_eq!(matrix.is_zero_at(1, 0), Some(true));
@@ -198,9 +198,9 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     /// let rows = vec![vec![0, 1], vec![1, 2]];
-    /// let matrix = Matrix::new(3, rows);
+    /// let matrix = SparseBinMat::new(3, rows);
     ///
     /// assert_eq!(matrix.is_one_at(0, 0), Some(true));
     /// assert_eq!(matrix.is_one_at(1, 0), Some(false));
@@ -216,9 +216,9 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     /// let rows = vec![vec![0, 1], vec![1, 2]];
-    /// let matrix = Matrix::new(3, rows);
+    /// let matrix = SparseBinMat::new(3, rows);
     ///
     /// assert_eq!(matrix.row(0), Some([0, 1].as_ref()));
     /// assert_eq!(matrix.row(1), Some([1, 2].as_ref()));
@@ -236,9 +236,9 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     /// let rows = vec![vec![0, 1, 2, 5], vec![1, 3, 4], vec![2, 4, 5], vec![0, 5]];
-    /// let matrix = Matrix::new(7, rows);
+    /// let matrix = SparseBinMat::new(7, rows);
     ///
     /// let mut iter = matrix.rows();
     ///
@@ -258,9 +258,9 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     /// let rows = vec![vec![0, 1, 2, 5], vec![1, 3, 4], vec![2, 4, 5], vec![0, 5]];
-    /// let matrix = Matrix::new(7, rows);
+    /// let matrix = SparseBinMat::new(7, rows);
     ///
     /// assert_eq!(matrix.row_weights().collect::<Vec<usize>>(), vec![4, 3, 3, 2]);
     /// ```
@@ -274,15 +274,15 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     ///
     /// let rows = vec![vec![0, 1, 2], vec![1, 3], vec![0, 2, 3]];
-    /// let matrix = Matrix::new(4, rows);
+    /// let matrix = SparseBinMat::new(4, rows);
     ///
     /// let transposed_matrix = matrix.transposed();
     ///
     /// let expected_rows = vec![vec![0, 2], vec![0, 1], vec![0, 2], vec![1, 2]];
-    /// let expected_matrix = Matrix::new(3, expected_rows);
+    /// let expected_matrix = SparseBinMat::new(3, expected_rows);
     ///
     /// assert_eq!(transposed_matrix, expected_matrix);
     /// ```
@@ -296,10 +296,10 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     ///
     /// let rows = vec![vec![0, 1], vec![1, 2], vec![0, 2]];
-    /// let matrix = Matrix::new(3, rows);
+    /// let matrix = SparseBinMat::new(3, rows);
     ///
     /// assert_eq!(matrix.rank(), 2);
     /// ```
@@ -317,11 +317,11 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
+    /// # use sparse_bin_mat::SparseBinMat;
     /// let rows = vec![vec![0, 1, 2], vec![0], vec![1, 2], vec![0, 2]];
-    /// let matrix = Matrix::new(3, rows);
+    /// let matrix = SparseBinMat::new(3, rows);
     ///
-    /// let expected = Matrix::new(3, vec![vec![0, 1, 2], vec![1], vec![2]]);
+    /// let expected = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![1], vec![2]]);
     ///
     /// assert_eq!(matrix.echelon_form(), expected);
     /// ```
@@ -337,17 +337,17 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
-    /// let left_matrix = Matrix::new(3, vec![vec![0, 1], vec![1, 2]]);
-    /// let right_matrix = Matrix::new(4, vec![vec![1, 2, 3], vec![0, 1], vec![2, 3]]);
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let left_matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+    /// let right_matrix = SparseBinMat::new(4, vec![vec![1, 2, 3], vec![0, 1], vec![2, 3]]);
     ///
     /// let concatened = left_matrix.horizontal_concat_with(&right_matrix);
     ///
-    /// let expected = Matrix::new(7, vec![vec![0, 1, 4, 5, 6], vec![1, 2, 3, 4], vec![5, 6]]);
+    /// let expected = SparseBinMat::new(7, vec![vec![0, 1, 4, 5, 6], vec![1, 2, 3, 4], vec![5, 6]]);
     ///
     /// assert_eq!(concatened, expected);
     /// ```
-    pub fn horizontal_concat_with(&self, other: &Matrix) -> Matrix {
+    pub fn horizontal_concat_with(&self, other: &SparseBinMat) -> SparseBinMat {
         concat_horizontally(self, other)
     }
 
@@ -356,13 +356,13 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
-    /// let left_matrix = Matrix::new(3, vec![vec![0, 1], vec![1, 2]]);
-    /// let right_matrix = Matrix::identity(3);
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let left_matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+    /// let right_matrix = SparseBinMat::identity(3);
     ///
     /// let concatened = left_matrix.vertical_concat_with(&right_matrix);
     ///
-    /// let expected = Matrix::new(3, vec![vec![0, 1], vec![1, 2], vec![0], vec![1], vec![2]]);
+    /// let expected = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2], vec![0], vec![1], vec![2]]);
     ///
     /// assert_eq!(concatened, expected);
     /// ```
@@ -370,7 +370,7 @@ impl Matrix {
     /// # Panic
     ///
     /// Panics if the matrices have a different number of columns.
-    pub fn vertical_concat_with(&self, other: &Matrix) -> Matrix {
+    pub fn vertical_concat_with(&self, other: &SparseBinMat) -> SparseBinMat {
         if self.number_of_columns() != other.number_of_columns() {
             panic!(
                 "{} and {} matrices can't be concatenated vertically",
@@ -386,15 +386,15 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// use sparse_binary_matrix::Matrix;
-    /// let matrix = Matrix::new(5, vec![
+    /// use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(5, vec![
     ///     vec![0, 1, 2],
     ///     vec![2, 3, 4],
     ///     vec![0, 2, 4],
     ///     vec![1, 3],
     /// ]);
     ///
-    /// let truncated = Matrix::new(5, vec![
+    /// let truncated = SparseBinMat::new(5, vec![
     ///     vec![0, 1, 2],
     ///     vec![0, 2, 4],
     /// ]);
@@ -422,15 +422,15 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
-    /// let matrix = Matrix::new(5, vec![
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(5, vec![
     ///     vec![0, 1, 2],
     ///     vec![2, 3, 4],
     ///     vec![0, 2, 4],
     ///     vec![1, 3],
     /// ]);
     ///
-    /// let truncated = Matrix::new(5, vec![
+    /// let truncated = SparseBinMat::new(5, vec![
     ///     vec![2, 3, 4],
     ///     vec![1, 3],
     /// ]);
@@ -467,15 +467,15 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// use sparse_binary_matrix::Matrix;
-    /// let matrix = Matrix::new(5, vec![
+    /// use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(5, vec![
     ///     vec![0, 1, 2],
     ///     vec![2, 3, 4],
     ///     vec![0, 2, 4],
     ///     vec![1, 3],
     /// ]);
     ///
-    /// let truncated = Matrix::new(3, vec![
+    /// let truncated = SparseBinMat::new(3, vec![
     ///     vec![0, 1],
     ///     vec![2],
     ///     vec![0, 2],
@@ -514,15 +514,15 @@ impl Matrix {
     /// # Example
     ///
     /// ```
-    /// # use sparse_binary_matrix::Matrix;
-    /// let matrix = Matrix::new(5, vec![
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(5, vec![
     ///     vec![0, 1, 2],
     ///     vec![2, 3, 4],
     ///     vec![0, 2, 4],
     ///     vec![1, 3],
     /// ]);
     ///
-    /// let truncated = Matrix::new(3, vec![
+    /// let truncated = SparseBinMat::new(3, vec![
     ///     vec![0],
     ///     vec![1, 2],
     ///     vec![2],
@@ -555,10 +555,10 @@ impl Matrix {
     }
 }
 
-impl Add<&Matrix> for &Matrix {
-    type Output = Matrix;
+impl Add<&SparseBinMat> for &SparseBinMat {
+    type Output = SparseBinMat;
 
-    fn add(self, other: &Matrix) -> Matrix {
+    fn add(self, other: &SparseBinMat) -> SparseBinMat {
         if self.dimension() != other.dimension() {
             panic!(
                 "{} and {} matrices can't be added",
@@ -571,14 +571,14 @@ impl Add<&Matrix> for &Matrix {
             .zip(other.rows())
             .map(|(row, other_row)| rows_bitwise_sum(row, other_row))
             .collect();
-        Matrix::new(self.number_of_columns(), rows)
+        SparseBinMat::new(self.number_of_columns(), rows)
     }
 }
 
-impl Mul<&Matrix> for &Matrix {
-    type Output = Matrix;
+impl Mul<&SparseBinMat> for &SparseBinMat {
+    type Output = SparseBinMat;
 
-    fn mul(self, other: &Matrix) -> Matrix {
+    fn mul(self, other: &SparseBinMat) -> SparseBinMat {
         if self.number_of_columns() != other.number_of_rows() {
             panic!(
                 "{} and {} matrices can't be multiplied",
@@ -596,7 +596,7 @@ impl Mul<&Matrix> for &Matrix {
                     .collect()
             })
             .collect();
-        Matrix::new(other.number_of_columns(), rows)
+        SparseBinMat::new(other.number_of_columns(), rows)
     }
 }
 
@@ -604,7 +604,7 @@ fn dimension_to_string(dimension: (usize, usize)) -> String {
     format!("({} x {})", dimension.0, dimension.1)
 }
 
-//impl std::fmt::Display for Matrix {
+//impl std::fmt::Display for SparseBinMat {
 //fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 //for row in self.rows() {
 //write!(f, "[ ")?;
@@ -624,7 +624,7 @@ mod test {
     #[test]
     fn rows_are_sorted_on_construction() {
         let rows = vec![vec![1, 0], vec![0, 2, 1], vec![1, 2, 3]];
-        let matrix = Matrix::new(4, rows);
+        let matrix = SparseBinMat::new(4, rows);
 
         assert_eq!(matrix.row(0).unwrap().as_ref(), &[0, 1]);
         assert_eq!(matrix.row(1).unwrap().as_ref(), &[0, 1, 2]);
@@ -635,22 +635,22 @@ mod test {
     #[should_panic]
     fn panics_on_construction_if_rows_are_out_of_bound() {
         let rows = vec![vec![0, 1, 5], vec![2, 3, 4]];
-        Matrix::new(5, rows);
+        SparseBinMat::new(5, rows);
     }
 
     #[test]
     fn addition() {
-        let first_matrix = Matrix::new(6, vec![vec![0, 2, 4], vec![1, 3, 5]]);
-        let second_matrix = Matrix::new(6, vec![vec![0, 1, 2], vec![3, 4, 5]]);
-        let sum = Matrix::new(6, vec![vec![1, 4], vec![1, 4]]);
+        let first_matrix = SparseBinMat::new(6, vec![vec![0, 2, 4], vec![1, 3, 5]]);
+        let second_matrix = SparseBinMat::new(6, vec![vec![0, 1, 2], vec![3, 4, 5]]);
+        let sum = SparseBinMat::new(6, vec![vec![1, 4], vec![1, 4]]);
         assert_eq!(&first_matrix + &second_matrix, sum);
     }
 
     #[test]
     fn panics_on_addition_if_different_dimensions() {
-        let matrix_6_2 = Matrix::new(6, vec![vec![0, 2, 4], vec![1, 3, 5]]);
-        let matrix_6_3 = Matrix::new(6, vec![vec![0, 1, 2], vec![3, 4, 5], vec![0, 3]]);
-        let matrix_2_2 = Matrix::new(2, vec![vec![0], vec![1]]);
+        let matrix_6_2 = SparseBinMat::new(6, vec![vec![0, 2, 4], vec![1, 3, 5]]);
+        let matrix_6_3 = SparseBinMat::new(6, vec![vec![0, 1, 2], vec![3, 4, 5], vec![0, 3]]);
+        let matrix_2_2 = SparseBinMat::new(2, vec![vec![0], vec![1]]);
 
         let result = std::panic::catch_unwind(|| &matrix_6_2 + &matrix_6_3);
         assert!(result.is_err());
@@ -664,16 +664,16 @@ mod test {
 
     #[test]
     fn multiplication_with_other_matrix() {
-        let first_matrix = Matrix::new(3, vec![vec![0, 1], vec![1, 2]]);
-        let second_matrix = Matrix::new(5, vec![vec![0, 2], vec![1, 3], vec![2, 4]]);
-        let product = Matrix::new(5, vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4]]);
+        let first_matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+        let second_matrix = SparseBinMat::new(5, vec![vec![0, 2], vec![1, 3], vec![2, 4]]);
+        let product = SparseBinMat::new(5, vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4]]);
         assert_eq!(&first_matrix * &second_matrix, product);
     }
 
     #[test]
     fn panics_on_matrix_multiplication_if_wrong_dimension() {
-        let matrix_6_3 = Matrix::new(6, vec![vec![0, 1, 2], vec![3, 4, 5], vec![0, 3]]);
-        let matrix_2_2 = Matrix::new(2, vec![vec![0], vec![1]]);
+        let matrix_6_3 = SparseBinMat::new(6, vec![vec![0, 1, 2], vec![3, 4, 5], vec![0, 3]]);
+        let matrix_2_2 = SparseBinMat::new(2, vec![vec![0], vec![1]]);
         let result = std::panic::catch_unwind(|| &matrix_6_3 * &matrix_2_2);
         assert!(result.is_err());
     }
