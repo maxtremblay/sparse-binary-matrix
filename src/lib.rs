@@ -6,7 +6,7 @@
 //!
 //! # Quick start
 //!
-//! To instantiate a matrix, you need to specify the number of columns as well
+//! To instanciate a matrix, you need to specify the number of columns as well
 //! as the position of 1 in each rows.
 //!
 //! ```
@@ -50,32 +50,39 @@
 //! These include, but are not limited to
 //! - [`rank`](SparseBinMat::rank),
 //! - [`echelon form`](SparseBinMat::echelon_form),
+//! - [`nullspace`](SparseBinMat::nullspace),
 //! - [`tranposition`](SparseBinMat::transposed),
 //! - [`horizontal`](SparseBinMat::horizontal_concat_with) and
 //! [`vertical`](SparseBinMat::vertical_concat_with) concatenations,
 //! - and more ...
+//!
+//! Operations are implemented as I need them,
+//! feel welcome to raise an issue if you need a new functionnality.
 
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::{Add, Mul};
-
-mod constructor_utils;
-use constructor_utils::{assert_rows_are_inbound, initialize_from};
-
-mod rows;
-pub use crate::rows::Rows;
-
-mod gauss_jordan;
-use gauss_jordan::GaussJordan;
-
-mod transpose;
-use transpose::transpose;
 
 mod bitwise_operations;
 use bitwise_operations::{rows_bitwise_sum, rows_dot_product};
 
 mod concat;
 use concat::{concat_horizontally, concat_vertically};
+
+mod constructor_utils;
+use constructor_utils::{assert_rows_are_inbound, initialize_from};
+
+mod gauss_jordan;
+use gauss_jordan::GaussJordan;
+
+mod nullspace;
+use nullspace::nullspace;
+
+mod rows;
+pub use crate::rows::Rows;
+
+mod transpose;
+use transpose::transpose;
 
 type BinaryNumber = u8;
 
@@ -143,6 +150,23 @@ impl SparseBinMat {
             row_ranges: (0..length + 1).collect(),
             number_of_columns: length,
         }
+    }
+
+    /// Creates a matrix fill with zeros of the given dimensions.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::zeros(2, 3);
+    ///
+    /// assert_eq!(matrix.number_of_rows(), 2);
+    /// assert_eq!(matrix.number_of_columns(), 3);
+    /// assert_eq!(matrix.number_of_zeros(), 6);
+    /// assert_eq!(matrix.number_of_ones(), 0);
+    /// ```
+    pub fn zeros(number_of_rows: usize, number_of_columns: usize) -> Self {
+        Self::new(number_of_columns, vec![Vec::new(); number_of_rows])
     }
 
     /// Creates an empty matrix.
@@ -386,6 +410,33 @@ impl SparseBinMat {
     /// ```
     pub fn echelon_form(&self) -> Self {
         GaussJordan::new(self).echelon_form()
+    }
+
+    /// Returns a matrix for which the rows are the generators
+    /// of the nullspace of the original matrix.
+    ///
+    /// The nullspace of a matrix M is the set of vectors N such that
+    /// Mx = 0 for all x in N.
+    /// Therefore, if N is the nullspace matrix obtain from this function,
+    /// we have that M * N^T = 0.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(
+    ///     6,
+    ///     vec![vec![0, 1, 3, 5], vec![2, 3, 4], vec![2, 5], vec![0, 1, 3]],
+    /// );
+    ///
+    /// let expected = SparseBinMat::new(6, vec![vec![0, 3, 4,], vec![0, 1]]);
+    /// let nullspace = matrix.nullspace();
+    ///
+    /// assert_eq!(nullspace, expected);
+    /// assert_eq!(&matrix * &nullspace.transposed(), SparseBinMat::zeros(4, 2));
+    /// ```
+    pub fn nullspace(&self) -> Self {
+        nullspace(self)
     }
 
     /// Returns the horizontal concatenation of two matrices.
