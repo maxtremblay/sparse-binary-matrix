@@ -6,7 +6,7 @@ edition = "2018"
 description = "A sparse implementation of a binary matrix optimized for row operations"
 repository = "https://github.com/maxtremblay/sparse-binary-matrix"
 license = "MIT OR Apache-2.0"
-keywords = ["linear algebra", "matrix", "binary", "sparse"]
+keywords = ["sparse", "binary", "matrix"]
 categories = ["data-structures", "algorithms"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
