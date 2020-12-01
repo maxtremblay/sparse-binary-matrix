@@ -7,7 +7,7 @@ That is, they are either 0 or 1 and addition is modulo 2.
 
 ## Quick start
 
-To instantiate a matrix, you need to specify the number of columns as well
+To instanciate a matrix, you need to specify the number of columns as well
 as the position of 1 in each rows.
 
 ```rust
@@ -49,6 +49,10 @@ Many useful operations and decompositions are implemented.
 These include, but are not limited to
 - rank,
 - echelon from,
+- normal form,
 - tranposition,
 - horizontal and vertical concatenations,
 - and more ...
+
+Operations are implemented as I need them,
+feel welcome to raise an issue if you need a new functionnality.

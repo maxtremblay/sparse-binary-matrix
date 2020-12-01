@@ -3,7 +3,11 @@ name = "sparse-bin-mat"
 version = "0.1.0"
 authors = ["maxtremblay <maxtremblay>"]
 edition = "2018"
-
+description = "A sparse implementation of a binary matrix optimized for row operations"
+repository = "https://github.com/maxtremblay/sparse-binary-matrix"
+license = "MIT OR Apache-2.0"
+keywords = ["linear algebra", "matrix", "binary", "sparse"]
+categories = ["data-structures", "algorithms"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
