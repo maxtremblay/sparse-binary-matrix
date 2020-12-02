@@ -1,5 +1,5 @@
 use crate::BinaryNumber;
-use crate::SparseBinSlice;
+use crate::{SparseBinSlice, SparseBinVec, SparseBinVecBase};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::{Add, Mul};
@@ -427,6 +427,48 @@ impl SparseBinMat {
             );
         }
         concat_vertically(self, other)
+    }
+
+    /// Returns the dot product between a matrix and a vector.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::{SparseBinMat, SparseBinVec};
+    /// let matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+    /// let vector = SparseBinVec::new(3, vec![0, 1]);
+    /// let result = SparseBinVec::new(2, vec![1]);
+    ///
+    /// assert_eq!(matrix.dot_with(&vector), result);
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// Panics if the number of columns of the matrix is different from the
+    ///
+    /// ```should_panic
+    /// # use sparse_bin_mat::{SparseBinMat, SparseBinVec};
+    /// let matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+    /// let vector = SparseBinVec::new(2, vec![0, 1]);
+    /// matrix.dot_with(&vector);
+    /// ```
+    pub fn dot_with<T>(&self, vector: &SparseBinVecBase<T>) -> SparseBinVec
+    where
+        T: std::ops::Deref<Target = [usize]>,
+    {
+        if self.number_of_columns() != vector.len() {
+            panic!(
+                "{} matrix can't be dotted with vector of length {}",
+                dimension_to_string(self.dimension()),
+                vector.len()
+            );
+        }
+        let positions = self
+            .rows()
+            .map(|row| row.dot_with(vector))
+            .positions(|product| product == 1)
+            .collect();
+        SparseBinVec::new(self.number_of_rows(), positions)
     }
 
     /// Returns a new matrix keeping only the given rows.
