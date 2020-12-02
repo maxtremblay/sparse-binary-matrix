@@ -1,7 +1,7 @@
 //! A sparse implementation of a binary matrix optimized for row operations.
 //!
-//! The main object of this crate is the [`SparseBinMat`](SparseBinMat).
-//! All elements in a binary matrix are element of the binary field GF2.
+//! The main objects of this crate are [`matrices`](crate::SparseBinMat) and [`vectors`](crate::SparseBinVecBase).
+//! All elements in a binary matrix or vector are element of the binary field GF2.
 //! That is, they are either 0 or 1 and addition is modulo 2.
 //!
 //! # Quick start
@@ -63,6 +63,6 @@ mod matrix;
 pub use matrix::{Rows, SparseBinMat};
 
 mod vector;
-pub use vector::{SparseBinSlice, SparseBinVec};
+pub use vector::{SparseBinSlice, SparseBinVec, SparseBinVecBase};
 
 type BinaryNumber = u8;

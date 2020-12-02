@@ -7,6 +7,13 @@ mod bitwise_operations;
 use bitwise_operations::BitwiseZipIter;
 
 /// A sparse binary vector.
+///
+/// There are two main variants of a vector,
+/// the owned one, [`SparseBinVec`](crate::SparseBinVec), and the borrowed one,
+/// [`SparseBinSlice`](crate::SparseBinSlice).
+/// Most of the time, you want to create a owned version.
+/// However, some iterators, such as those defined on [`SparseBinMat`](crate::SparseBinMat)
+/// returns the borrowed version.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SparseBinVecBase<T> {
     positions: T,
