@@ -1,4 +1,3 @@
-use super::rows_bitwise_sum;
 use super::SparseBinMat;
 use itertools::Itertools;
 
@@ -25,7 +24,7 @@ fn normal_form_from_echelon_form(matrix: &SparseBinMat) -> (SparseBinMat, Vec<us
 fn swap_echelon_form(matrix: &SparseBinMat) -> (SparseBinMat, Vec<usize>) {
     let mut permutation = (0..matrix.number_of_columns()).collect::<Vec<_>>();
     for (index, row) in matrix.rows().enumerate() {
-        let column = row[0];
+        let column = row.as_slice()[0];
         if column != index {
             permutation.swap(index, column);
         }
@@ -37,11 +36,11 @@ fn reduce_to_normal_form(matrix: &SparseBinMat) -> SparseBinMat {
     let rows = matrix
         .rows()
         .map(|row| {
-            let mut r = row.to_vec();
-            while r.get(1).is_some() && r[1] < matrix.number_of_rows() {
-                r = rows_bitwise_sum(&r, matrix.row(r[1]).unwrap())
+            let mut r = row.to_owned();
+            while r.weight() > 1 && r.as_slice()[1] < matrix.number_of_rows() {
+                r = &r + &matrix.row(r.as_slice()[1]).unwrap();
             }
-            r
+            r.take_inner_vec()
         })
         .collect();
     SparseBinMat::new(matrix.number_of_columns(), rows)
@@ -51,7 +50,12 @@ fn permute_columns(matrix: &SparseBinMat, permutation: &[usize]) -> SparseBinMat
     let inverse = inverse_permutation(&permutation);
     let rows = matrix
         .rows()
-        .map(|row| row.iter().map(|column| inverse[*column]).sorted().collect())
+        .map(|row| {
+            row.non_trivial_positions()
+                .map(|column| inverse[column])
+                .sorted()
+                .collect()
+        })
         .collect();
     SparseBinMat::new(matrix.number_of_columns(), rows)
 }

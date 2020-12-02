@@ -6,7 +6,7 @@ pub(super) fn transpose(matrix: &SparseBinMat) -> SparseBinMat {
     }
     let mut transposed = vec![Vec::new(); matrix.number_of_columns()];
     for (row, positions) in matrix.rows().enumerate() {
-        insert_positions_into(row, positions, &mut transposed);
+        insert_positions_into(row, positions.as_slice(), &mut transposed);
     }
     SparseBinMat::new(matrix.number_of_rows(), transposed)
 }

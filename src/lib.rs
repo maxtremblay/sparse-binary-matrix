@@ -26,7 +26,7 @@
 //! ```
 //! # use sparse_bin_mat::SparseBinMat;
 //! let matrix = SparseBinMat::new(5, vec![vec![0, 2, 4], vec![1, 3], vec![2]]);
-//! assert_eq!(matrix.row(1), Some([1, 3].as_ref()));
+//! assert_eq!(matrix.row(1).unwrap().as_slice(), [1, 3].as_ref());
 //! assert_eq!(matrix.get(0, 0), Some(1));
 //! assert_eq!(matrix.get(0, 1), Some(0));
 //! // The element (0, 7) is out of bound for a 3 x 5 matrix.

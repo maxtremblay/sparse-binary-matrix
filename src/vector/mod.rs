@@ -86,6 +86,10 @@ impl SparseBinVec {
             positions: Vec::new(),
         }
     }
+
+    pub(crate) fn take_inner_vec(self) -> Vec<usize> {
+        self.positions
+    }
 }
 
 impl<'a> SparseBinSlice<'a> {
@@ -353,10 +357,23 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     }
 
     /// Returns a view over the vector.
-    pub fn as_slice(&self) -> SparseBinSlice {
+    pub fn as_view(&self) -> SparseBinSlice {
         SparseBinSlice {
             length: self.length,
             positions: &self.positions,
+        }
+    }
+
+    /// Returns a slice of the non trivial positions.
+    pub fn as_slice(&self) -> &[usize] {
+        self.positions.as_ref()
+    }
+
+    /// Returns an owned version of the vector.
+    pub fn to_owned(self) -> SparseBinVec {
+        SparseBinVec {
+            length: self.length,
+            positions: self.positions.to_owned(),
         }
     }
 
@@ -377,7 +394,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         &self,
         other: &SparseBinVecBase<S>,
     ) -> BinaryNumber {
-        BitwiseZipIter::new(self.as_slice(), other.as_slice())
+        BitwiseZipIter::new(self.as_view(), other.as_view())
             .fold(0, |sum, x| sum ^ x.first_row_value * x.second_row_value)
     }
 }
@@ -397,7 +414,7 @@ where
                 other.len()
             );
         }
-        let positions = BitwiseZipIter::new(self.as_slice(), other.as_slice())
+        let positions = BitwiseZipIter::new(self.as_view(), other.as_view())
             .filter_map(|x| {
                 if x.first_row_value ^ x.second_row_value == 1 {
                     Some(x.position)

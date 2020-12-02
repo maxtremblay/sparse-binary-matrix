@@ -1,4 +1,5 @@
 use super::SparseBinMat;
+use super::SparseBinSlice;
 use itertools::EitherOrBoth;
 use itertools::Itertools;
 
@@ -18,25 +19,19 @@ fn get_rows_of_horizontal_concat(
     left_matrix
         .rows()
         .zip_longest(right_matrix.rows())
-        .map(|rows| {
-            rows.map_left(|row| row.to_vec())
-                .map_right(|row| pad_right_row(left_matrix.number_of_columns(), row))
-        })
-        .map(|rows| concat_rows_horizontally(rows))
+        .map(|rows| concat_rows_horizontally(left_matrix.number_of_columns(), rows))
         .collect()
 }
 
-fn concat_rows_horizontally(rows: EitherOrBoth<Vec<usize>, Vec<usize>>) -> Vec<usize> {
+fn concat_rows_horizontally(
+    pad: usize,
+    rows: EitherOrBoth<SparseBinSlice, SparseBinSlice>,
+) -> Vec<usize> {
     match rows {
-        EitherOrBoth::Both(left_row, right_row) => concat(left_row, right_row),
-        EitherOrBoth::Left(row) => row,
-        EitherOrBoth::Right(row) => row,
+        EitherOrBoth::Both(left_row, right_row) => left_row.concat(&right_row).take_inner_vec(),
+        EitherOrBoth::Left(row) => row.to_owned().take_inner_vec(),
+        EitherOrBoth::Right(row) => pad_right_row(pad, row.as_slice()),
     }
-}
-
-fn concat(mut left_row: Vec<usize>, mut right_row: Vec<usize>) -> Vec<usize> {
-    left_row.append(&mut right_row);
-    left_row
 }
 
 fn pad_right_row(pad: usize, row: &[usize]) -> Vec<usize> {
@@ -51,7 +46,7 @@ pub(super) fn concat_vertically(
     let rows = top_matrix
         .rows()
         .chain(bottom_matrix.rows())
-        .map(|row| row.to_vec())
+        .map(|row| row.to_owned().take_inner_vec())
         .collect();
     SparseBinMat::new(top_matrix.number_of_columns(), rows)
 }

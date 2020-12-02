@@ -1,5 +1,5 @@
-use super::rows_bitwise_sum;
 use super::SparseBinMat;
+use crate::SparseBinSlice;
 
 pub(super) struct GaussJordan {
     number_of_columns: usize,
@@ -12,7 +12,10 @@ impl GaussJordan {
         Self {
             number_of_columns: matrix.number_of_columns(),
             active_column: 0,
-            rows: matrix.rows().map(|row| row.to_vec()).collect(),
+            rows: matrix
+                .rows()
+                .map(|row| row.non_trivial_positions().collect())
+                .collect(),
         }
     }
 
@@ -73,7 +76,13 @@ impl GaussJordan {
         let mut row_index = 0;
         while row_index < self.rows.len() {
             if self.row_at_index_start_at_active_column(row_index) {
-                self.rows[row_index] = rows_bitwise_sum(&pivot, &self.rows[row_index]);
+                self.rows[row_index] =
+                    (&SparseBinSlice::new_from_sorted(self.number_of_columns, pivot)
+                        + &SparseBinSlice::new_from_sorted(
+                            self.number_of_columns,
+                            &self.rows[row_index],
+                        ))
+                        .take_inner_vec();
                 if self.rows[row_index].is_empty() {
                     self.rows.swap_remove(row_index);
                     continue;

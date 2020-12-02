@@ -1,10 +1,8 @@
 use crate::BinaryNumber;
+use crate::SparseBinSlice;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::ops::{Add, Mul};
-
-mod bitwise_operations;
-use bitwise_operations::{rows_bitwise_sum, rows_dot_product};
 
 mod concat;
 use concat::{concat_horizontally, concat_vertically};
@@ -188,8 +186,7 @@ impl SparseBinMat {
     /// ```
     pub fn get(&self, row: usize, column: usize) -> Option<BinaryNumber> {
         if column < self.number_of_columns() {
-            self.row(row)
-                .map(|row| if row.contains(&column) { 1 } else { 0 })
+            self.row(row).and_then(|row| row.get(column))
         } else {
             None
         }
@@ -237,18 +234,21 @@ impl SparseBinMat {
     /// # Example
     ///
     /// ```
-    /// # use sparse_bin_mat::SparseBinMat;
+    /// # use sparse_bin_mat::{SparseBinSlice, SparseBinMat};
     /// let rows = vec![vec![0, 1], vec![1, 2]];
-    /// let matrix = SparseBinMat::new(3, rows);
+    /// let matrix = SparseBinMat::new(3, rows.clone());
     ///
-    /// assert_eq!(matrix.row(0), Some([0, 1].as_ref()));
-    /// assert_eq!(matrix.row(1), Some([1, 2].as_ref()));
+    /// assert_eq!(matrix.row(0), Some(SparseBinSlice::new_from_sorted(3, &rows[0])));
+    /// assert_eq!(matrix.row(1), Some(SparseBinSlice::new_from_sorted(3, &rows[1])));
     /// assert_eq!(matrix.row(2), None);
     /// ```
-    pub fn row(&self, row: usize) -> Option<&[usize]> {
+    pub fn row(&self, row: usize) -> Option<SparseBinSlice> {
         let row_start = self.row_ranges.get(row)?;
         let row_end = self.row_ranges.get(row + 1)?;
-        Some(&self.column_indices[*row_start..*row_end])
+        Some(SparseBinSlice::new_from_sorted(
+            self.number_of_columns(),
+            &self.column_indices[*row_start..*row_end],
+        ))
     }
 
     /// Returns an iterator yielding the rows of the matrix
@@ -257,16 +257,16 @@ impl SparseBinMat {
     /// # Example
     ///
     /// ```
-    /// # use sparse_bin_mat::SparseBinMat;
+    /// # use sparse_bin_mat::{SparseBinSlice, SparseBinMat};
     /// let rows = vec![vec![0, 1, 2, 5], vec![1, 3, 4], vec![2, 4, 5], vec![0, 5]];
-    /// let matrix = SparseBinMat::new(7, rows);
+    /// let matrix = SparseBinMat::new(7, rows.clone());
     ///
     /// let mut iter = matrix.rows();
     ///
-    /// assert_eq!(iter.next(), Some([0, 1, 2, 5].as_ref()));
-    /// assert_eq!(iter.next(), Some([1, 3, 4].as_ref()));
-    /// assert_eq!(iter.next(), Some([2, 4, 5].as_ref()));
-    /// assert_eq!(iter.next(), Some([0, 5].as_ref()));
+    /// assert_eq!(iter.next(), Some(SparseBinSlice::new_from_sorted(7, &rows[0])));
+    /// assert_eq!(iter.next(), Some(SparseBinSlice::new_from_sorted(7, &rows[1])));
+    /// assert_eq!(iter.next(), Some(SparseBinSlice::new_from_sorted(7, &rows[2])));
+    /// assert_eq!(iter.next(), Some(SparseBinSlice::new_from_sorted(7, &rows[3])));
     /// assert_eq!(iter.next(), None);
     /// ```
     pub fn rows(&self) -> Rows {
@@ -286,7 +286,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.row_weights().collect::<Vec<usize>>(), vec![4, 3, 3, 2]);
     /// ```
     pub fn row_weights<'a>(&'a self) -> impl Iterator<Item = usize> + 'a {
-        self.rows().map(|row| row.len())
+        self.rows().map(|row| row.weight())
     }
 
     /// Gets the transposed version of the matrix
@@ -460,7 +460,7 @@ impl SparseBinMat {
             .rows()
             .enumerate()
             .filter(|(index, _)| rows.contains(index))
-            .map(|(_, row)| row.to_vec())
+            .map(|(_, row)| row.non_trivial_positions().collect())
             .collect();
         Self::new(self.number_of_columns(), rows)
     }
@@ -547,8 +547,8 @@ impl SparseBinMat {
         let rows = self
             .rows()
             .map(|row| {
-                row.iter()
-                    .filter_map(|column| old_to_new_column_map.get(column).cloned())
+                row.non_trivial_positions()
+                    .filter_map(|column| old_to_new_column_map.get(&column).cloned())
                     .collect()
             })
             .collect();
@@ -617,7 +617,8 @@ impl Add<&SparseBinMat> for &SparseBinMat {
         let rows = self
             .rows()
             .zip(other.rows())
-            .map(|(row, other_row)| rows_bitwise_sum(row, other_row))
+            .map(|(row, other_row)| &row + &other_row)
+            .map(|sum| sum.non_trivial_positions().collect_vec())
             .collect();
         SparseBinMat::new(self.number_of_columns(), rows)
     }
@@ -640,7 +641,7 @@ impl Mul<&SparseBinMat> for &SparseBinMat {
             .map(|row| {
                 other_transposed
                     .rows()
-                    .positions(|column| rows_dot_product(row, column) == 1)
+                    .positions(|column| row.dot_with(&column) == 1)
                     .collect()
             })
             .collect();
@@ -674,9 +675,9 @@ mod test {
         let rows = vec![vec![1, 0], vec![0, 2, 1], vec![1, 2, 3]];
         let matrix = SparseBinMat::new(4, rows);
 
-        assert_eq!(matrix.row(0).unwrap().as_ref(), &[0, 1]);
-        assert_eq!(matrix.row(1).unwrap().as_ref(), &[0, 1, 2]);
-        assert_eq!(matrix.row(2).unwrap().as_ref(), &[1, 2, 3]);
+        assert_eq!(matrix.row(0).unwrap().as_slice(), &[0, 1]);
+        assert_eq!(matrix.row(1).unwrap().as_slice(), &[0, 1, 2]);
+        assert_eq!(matrix.row(2).unwrap().as_slice(), &[1, 2, 3]);
     }
 
     #[test]
