@@ -170,6 +170,11 @@ impl SparseBinMat {
         self.number_of_elements() == 0
     }
 
+    /// Returns true if the all elements of the matrix are 0.
+    pub fn is_zero(&self) -> bool {
+        self.number_of_ones() == 0
+    }
+
     /// Returns the value at the given row and column
     /// or None if one of the index is out of bound.
     ///
