@@ -4,9 +4,6 @@ use itertools::Itertools;
 pub(super) fn nullspace(matrix: &SparseBinMat) -> SparseBinMat {
     let echelon_form = matrix.echelon_form();
     let (normal_form, permutation) = normal_form_from_echelon_form(&echelon_form);
-    println!("{:?}", echelon_form);
-    println!("{:?}", normal_form);
-    println!("{:?}", permutation);
     let nullspace = normal_form
         .without_columns(&(0..matrix.number_of_rows()).collect_vec())
         .vertical_concat_with(&SparseBinMat::identity(
@@ -17,7 +14,6 @@ pub(super) fn nullspace(matrix: &SparseBinMat) -> SparseBinMat {
 
 fn normal_form_from_echelon_form(matrix: &SparseBinMat) -> (SparseBinMat, Vec<usize>) {
     let (swapped_echelon_form, permutation) = swap_echelon_form(matrix);
-    println!("SWAP: {:?}", swapped_echelon_form);
     (reduce_to_normal_form(&swapped_echelon_form), permutation)
 }
 
