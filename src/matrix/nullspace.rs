@@ -5,9 +5,9 @@ pub(super) fn nullspace(matrix: &SparseBinMat) -> SparseBinMat {
     let echelon_form = matrix.echelon_form();
     let (normal_form, permutation) = normal_form_from_echelon_form(&echelon_form);
     let nullspace = normal_form
-        .without_columns(&(0..matrix.number_of_rows()).collect_vec())
+        .without_columns(&(0..normal_form.number_of_rows()).collect_vec())
         .vertical_concat_with(&SparseBinMat::identity(
-            matrix.number_of_columns() - matrix.number_of_rows(),
+            normal_form.number_of_columns() - normal_form.number_of_rows(),
         ));
     permute_columns(&nullspace.transposed(), &inverse_permutation(&permutation))
 }
@@ -67,6 +67,13 @@ fn inverse_permutation(permutation: &[usize]) -> Vec<usize> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn nullspace_of_rank_1_matrix() {
+        let matrix = SparseBinMat::new(4, vec![vec![0, 1, 2, 3]]);
+        let expected = SparseBinMat::new(4, vec![vec![0, 1], vec![0, 2], vec![0, 3]]);
+        assert_eq!(nullspace(&matrix), expected);
+    }
 
     #[test]
     fn normal_form() {
