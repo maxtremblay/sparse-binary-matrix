@@ -197,6 +197,11 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         self.len() == 0
     }
 
+    /// Returns true of all the element in the vector are 0.
+    pub fn is_zero(&self) -> bool {
+        self.weight() == 0
+    }
+
     /// Returns the value at the given position
     /// or None if the position is out of bound.
     ///
