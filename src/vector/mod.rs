@@ -1,6 +1,7 @@
 use crate::BinaryNumber;
 use is_sorted::IsSorted;
 use std::collections::HashMap;
+use std::fmt;
 use std::ops::{Add, Deref};
 
 mod bitwise_operations;
@@ -94,7 +95,18 @@ impl SparseBinVec {
         }
     }
 
-    pub(crate) fn take_inner_vec(self) -> Vec<usize> {
+    /// Converts the sparse binary vector to a `Vec` of
+    /// the non trivial positions.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinVec;
+    /// let vector = SparseBinVec::new(3, vec![0, 2]);
+    ///
+    /// assert_eq!(vector.to_positions_vec(), vec![0, 2]);
+    /// ```
+    pub fn to_positions_vec(self) -> Vec<usize> {
         self.positions
     }
 }
@@ -436,6 +448,12 @@ where
             })
             .collect();
         SparseBinVec::new(self.len(), positions)
+    }
+}
+
+impl<T: Deref<Target = [usize]>> fmt::Display for SparseBinVecBase<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.positions.deref())
     }
 }
 

@@ -82,7 +82,7 @@ impl GaussJordan {
                             self.number_of_columns,
                             &self.rows[row_index],
                         ))
-                        .take_inner_vec();
+                        .to_positions_vec();
                 if self.rows[row_index].is_empty() {
                     self.rows.swap_remove(row_index);
                     continue;

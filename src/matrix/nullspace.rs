@@ -36,7 +36,7 @@ fn reduce_to_normal_form(matrix: &SparseBinMat) -> SparseBinMat {
             while r.weight() > 1 && r.as_slice()[1] < matrix.number_of_rows() {
                 r = &r + &matrix.row(r.as_slice()[1]).unwrap();
             }
-            r.take_inner_vec()
+            r.to_positions_vec()
         })
         .collect();
     SparseBinMat::new(matrix.number_of_columns(), rows)

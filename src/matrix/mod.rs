@@ -700,18 +700,14 @@ fn dimension_to_string(dimension: (usize, usize)) -> String {
     format!("({} x {})", dimension.0, dimension.1)
 }
 
-//impl std::fmt::Display for SparseBinMat {
-//fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//for row in self.rows() {
-//write!(f, "[ ")?;
-//for column in row.iter() {
-//write!(f, "{} ", column)?;
-//}
-//write!(f, "]")?;
-//}
-//Ok(())
-//}
-//}
+impl std::fmt::Display for SparseBinMat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for row in self.rows() {
+            writeln!(f, "{}", row)?;
+        }
+        Ok(())
+    }
+}
 
 #[cfg(test)]
 mod test {
