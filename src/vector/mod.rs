@@ -1,4 +1,4 @@
-use crate::error::{validate_positions, IncompatibleDimensions, PositionsError};
+use crate::error::{validate_positions, IncompatibleDimensions, InvalidPositions};
 use crate::BinaryNumber;
 use std::collections::HashMap;
 use std::fmt;
@@ -86,7 +86,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     ///
     /// ```
     /// # use sparse_bin_mat::SparseBinVec;
-    /// use sparse_bin_mat::error::PositionsError;
+    /// use sparse_bin_mat::error::InvalidPositions;
     ///
     /// let vector = SparseBinVec::new(5, vec![0, 2]);
     ///
@@ -106,21 +106,21 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     ///
     /// ```
     /// # use sparse_bin_mat::SparseBinVec;
-    /// use sparse_bin_mat::error::PositionsError;
+    /// use sparse_bin_mat::error::InvalidPositions;
     ///
     /// let vector = SparseBinVec::try_new(5, vec![0, 2]);
     /// assert_eq!(vector, Ok(SparseBinVec::new(5, vec![0, 2])));
     ///
     /// let vector = SparseBinVec::try_new(5, vec![2, 0]);
-    /// assert_eq!(vector, Err(PositionsError::Unsorted));
+    /// assert_eq!(vector, Err(InvalidPositions::Unsorted));
     ///
     /// let vector = SparseBinVec::try_new(5, vec![0, 10]);
-    /// assert_eq!(vector, Err(PositionsError::OutOfBound));
+    /// assert_eq!(vector, Err(InvalidPositions::OutOfBound));
     ///
     /// let vector = SparseBinVec::try_new(5, vec![0, 0]);
-    /// assert_eq!(vector, Err(PositionsError::Duplicated));
+    /// assert_eq!(vector, Err(InvalidPositions::Duplicated));
     /// ```
-    pub fn try_new(length: usize, positions: T) -> Result<Self, PositionsError> {
+    pub fn try_new(length: usize, positions: T) -> Result<Self, InvalidPositions> {
         validate_positions(length, &positions)?;
         Ok(Self { positions, length })
     }
@@ -268,7 +268,10 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// assert_eq!(vector.keep_only_positions(&[0, 1, 2]), Ok(truncated));
     /// assert_eq!(vector.keep_only_positions(&[1, 2]).map(|vec| vec.len()), Ok(2));
     /// ```
-    pub fn keep_only_positions(&self, positions: &[usize]) -> Result<SparseBinVec, PositionsError> {
+    pub fn keep_only_positions(
+        &self,
+        positions: &[usize],
+    ) -> Result<SparseBinVec, InvalidPositions> {
         validate_positions(self.length, positions)?;
         let old_to_new_positions_map = positions
             .iter()
@@ -297,7 +300,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// assert_eq!(vector.without_positions(&[3, 4]), Ok(truncated));
     /// assert_eq!(vector.without_positions(&[1, 2]).map(|vec| vec.len()), Ok(3));
     /// ```
-    pub fn without_positions(&self, positions: &[usize]) -> Result<SparseBinVec, PositionsError> {
+    pub fn without_positions(&self, positions: &[usize]) -> Result<SparseBinVec, InvalidPositions> {
         let to_keep: Vec<usize> = (0..self.len()).filter(|x| !positions.contains(x)).collect();
         self.keep_only_positions(&to_keep)
     }

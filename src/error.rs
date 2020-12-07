@@ -1,7 +1,7 @@
 //! Error types for matrix and vector operations.
 //!
 //! This contains two kind of errors.
-//! [`PositionsError`](PositionsError) represents errors
+//! [`InvalidPositions`](InvalidPositions) represents errors
 //! when building a vector or matrix with invalid positions.
 //! [`IncompatibleDimensions`](IncompatibleDimensions) represents errors
 //! when two objects have incompatible dimensions for a given operations
@@ -13,35 +13,38 @@ use std::fmt;
 
 /// An error to represent invalid positions in a vector or matrix.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum PositionsError {
+pub enum InvalidPositions {
     Unsorted,
     OutOfBound,
     Duplicated,
 }
 
-impl fmt::Display for PositionsError {
+impl fmt::Display for InvalidPositions {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            PositionsError::Unsorted => "some positions are not sorted".fmt(f),
-            PositionsError::OutOfBound => "some positions are out of bound".fmt(f),
-            PositionsError::Duplicated => "some positions are duplicated".fmt(f),
+            InvalidPositions::Unsorted => "some positions are not sorted".fmt(f),
+            InvalidPositions::OutOfBound => "some positions are out of bound".fmt(f),
+            InvalidPositions::Duplicated => "some positions are duplicated".fmt(f),
         }
     }
 }
 
-impl std::error::Error for PositionsError {}
+impl std::error::Error for InvalidPositions {}
 
-pub(crate) fn validate_positions(length: usize, positions: &[usize]) -> Result<(), PositionsError> {
+pub(crate) fn validate_positions(
+    length: usize,
+    positions: &[usize],
+) -> Result<(), InvalidPositions> {
     for position in positions.iter() {
         if *position >= length {
-            return Result::Err(PositionsError::OutOfBound);
+            return Result::Err(InvalidPositions::OutOfBound);
         }
     }
     if !IsSorted::is_sorted(&mut positions.iter()) {
-        return Result::Err(PositionsError::Unsorted);
+        return Result::Err(InvalidPositions::Unsorted);
     }
     if positions.iter().unique().count() != positions.len() {
-        return Result::Err(PositionsError::Duplicated);
+        return Result::Err(InvalidPositions::Duplicated);
     }
     Ok(())
 }

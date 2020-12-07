@@ -1,5 +1,6 @@
 use crate::error::{
-    validate_positions, MatMatIncompatibleDimensions, MatVecIncompatibleDimensions, PositionsError,
+    validate_positions, InvalidPositions, MatMatIncompatibleDimensions,
+    MatVecIncompatibleDimensions,
 };
 use crate::BinaryNumber;
 use crate::{SparseBinSlice, SparseBinVec, SparseBinVecBase};
@@ -78,7 +79,7 @@ impl SparseBinMat {
     pub fn try_new(
         number_of_columns: usize,
         rows: Vec<Vec<usize>>,
-    ) -> Result<Self, PositionsError> {
+    ) -> Result<Self, InvalidPositions> {
         for row in rows.iter() {
             validate_positions(number_of_columns, row)?;
         }
@@ -596,7 +597,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.keep_only_rows(&[0, 2]), Ok(truncated));
     /// assert_eq!(matrix.keep_only_rows(&[0, 2, 3]).unwrap().number_of_rows(), 3);
     /// ```
-    pub fn keep_only_rows(&self, rows: &[usize]) -> Result<Self, PositionsError> {
+    pub fn keep_only_rows(&self, rows: &[usize]) -> Result<Self, InvalidPositions> {
         validate_positions(self.number_of_rows(), rows)?;
         let rows = self
             .rows()
@@ -629,7 +630,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.without_rows(&[0, 2]), Ok(truncated));
     /// assert_eq!(matrix.without_rows(&[1, 2, 3]).unwrap().number_of_rows(), 1);
     /// ```
-    pub fn without_rows(&self, rows: &[usize]) -> Result<Self, PositionsError> {
+    pub fn without_rows(&self, rows: &[usize]) -> Result<Self, InvalidPositions> {
         let to_keep: Vec<usize> = (0..self.number_of_rows())
             .filter(|x| !rows.contains(x))
             .collect();
@@ -662,7 +663,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.keep_only_columns(&[0, 1, 4]), Ok(truncated));
     /// assert_eq!(matrix.keep_only_columns(&[1, 2]).unwrap().number_of_columns(), 2);
     /// ```
-    pub fn keep_only_columns(&self, columns: &[usize]) -> Result<Self, PositionsError> {
+    pub fn keep_only_columns(&self, columns: &[usize]) -> Result<Self, InvalidPositions> {
         validate_positions(self.number_of_columns(), columns)?;
         let old_to_new_column_map = columns
             .iter()
@@ -705,7 +706,7 @@ impl SparseBinMat {
     ///
     /// assert_eq!(matrix.without_columns(&[0, 2]), Ok(truncated));
     /// ```
-    pub fn without_columns(&self, columns: &[usize]) -> Result<Self, PositionsError> {
+    pub fn without_columns(&self, columns: &[usize]) -> Result<Self, InvalidPositions> {
         let to_keep: Vec<usize> = (0..self.number_of_columns)
             .filter(|x| !columns.contains(x))
             .collect();
