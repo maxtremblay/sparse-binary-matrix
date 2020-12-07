@@ -59,10 +59,13 @@
 //! Operations are implemented as I need them,
 //! feel welcome to raise an issue if you need a new functionnality.
 
+type BinaryNumber = u8;
+
+mod error;
+pub use error::PositionsError;
+
 mod matrix;
 pub use matrix::{Rows, SparseBinMat};
 
 mod vector;
 pub use vector::{SparseBinSlice, SparseBinVec, SparseBinVecBase};
-
-type BinaryNumber = u8;
