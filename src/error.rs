@@ -1,7 +1,17 @@
+//! Error types for matrix and vector operations.
+//!
+//! This contains two kind of errors.
+//! [`PositionsError`](PositionsError) represents errors
+//! when building a vector or matrix with invalid positions.
+//! [`IncompatibleDimensions`](IncompatibleDimensions) represents errors
+//! when two objects have incompatible dimensions for a given operations
+//! such as addition or multiplication.
+
 use is_sorted::IsSorted;
 use itertools::Itertools;
 use std::fmt;
 
+/// An error to represent invalid positions in a vector or matrix.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum PositionsError {
     Unsorted,
@@ -36,6 +46,8 @@ pub(crate) fn validate_positions(length: usize, positions: &[usize]) -> Result<(
     Ok(())
 }
 
+/// An error to represent incompatible dimensions
+/// in matrix and vector operations.
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct IncompatibleDimensions<DL, DR> {
     left_dimensions: DL,
