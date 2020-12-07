@@ -48,7 +48,11 @@ pub(super) fn concat_vertically(
         .chain(bottom_matrix.rows())
         .map(|row| row.to_owned().to_positions_vec())
         .collect();
-    SparseBinMat::new(top_matrix.number_of_columns(), rows)
+    let number_of_columns = std::cmp::max(
+        top_matrix.number_of_columns(),
+        bottom_matrix.number_of_columns(),
+    );
+    SparseBinMat::new(number_of_columns, rows)
 }
 
 #[cfg(test)]
@@ -104,7 +108,43 @@ mod test {
     }
 
     #[test]
-    fn vertical_concat() {
+    fn vertical_concat_with_smaller_bottom_matrix() {
+        let top_matrix = SparseBinMat::new(4, vec![vec![0, 1], vec![1, 2, 3]]);
+        let bottom_matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
+        let concatened = concat_vertically(&top_matrix, &bottom_matrix);
+        let expected = SparseBinMat::new(
+            4,
+            vec![
+                vec![0, 1],
+                vec![1, 2, 3],
+                vec![0, 1],
+                vec![1, 2],
+                vec![0, 2],
+            ],
+        );
+        assert_eq!(concatened, expected);
+    }
+
+    #[test]
+    fn vertical_concat_with_smaller_top_matrix() {
+        let left_matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
+        let right_matrix = SparseBinMat::new(4, vec![vec![0, 1], vec![1, 2, 3]]);
+        let concatened = concat_vertically(&left_matrix, &right_matrix);
+        let expected = SparseBinMat::new(
+            4,
+            vec![
+                vec![0, 1],
+                vec![1, 2],
+                vec![0, 2],
+                vec![0, 1],
+                vec![1, 2, 3],
+            ],
+        );
+        assert_eq!(concatened, expected);
+    }
+
+    #[test]
+    fn vertical_concatwith_equal_length_matrices() {
         let top_matrix = SparseBinMat::new(4, vec![vec![0, 1], vec![1, 2, 3]]);
         let bottom_matrix = SparseBinMat::new(4, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
         let concatened = concat_vertically(&top_matrix, &bottom_matrix);

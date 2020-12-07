@@ -56,22 +56,10 @@ mod test {
         let matrix = SparseBinMat::new(4, rows.clone());
         let mut iter = Rows::from(&matrix);
 
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[0]))
-        );
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[1]))
-        );
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[2]))
-        );
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[3]))
-        );
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[0])));
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[1])));
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[2])));
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[3])));
         assert_eq!(iter.next(), None);
     }
 
@@ -88,22 +76,10 @@ mod test {
         let matrix = SparseBinMat::new(4, rows.clone());
         let mut iter = Rows::from(&matrix).rev();
 
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[3]))
-        );
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[2]))
-        );
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[1]))
-        );
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[0]))
-        );
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[3])));
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[2])));
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[1])));
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[0])));
         assert_eq!(iter.next(), None);
     }
 
@@ -113,22 +89,10 @@ mod test {
         let matrix = SparseBinMat::new(4, rows.clone());
         let mut iter = Rows::from(&matrix);
 
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[0]))
-        );
-        assert_eq!(
-            iter.next_back(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[3]))
-        );
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[1]))
-        );
-        assert_eq!(
-            iter.next(),
-            Some(SparseBinSlice::new_from_sorted(4, &rows[2]))
-        );
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[0])));
+        assert_eq!(iter.next_back(), Some(SparseBinSlice::new(4, &rows[3])));
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[1])));
+        assert_eq!(iter.next(), Some(SparseBinSlice::new(4, &rows[2])));
         assert_eq!(iter.next_back(), None);
         assert_eq!(iter.next(), None);
     }

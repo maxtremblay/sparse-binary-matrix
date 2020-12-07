@@ -6,9 +6,11 @@ pub(super) fn nullspace(matrix: &SparseBinMat) -> SparseBinMat {
     let (normal_form, permutation) = normal_form_from_echelon_form(&echelon_form);
     let nullspace = normal_form
         .without_columns(&(0..normal_form.number_of_rows()).collect_vec())
+        .unwrap()
         .vertical_concat_with(&SparseBinMat::identity(
             normal_form.number_of_columns() - normal_form.number_of_rows(),
-        ));
+        ))
+        .unwrap();
     permute_columns(&nullspace.transposed(), &inverse_permutation(&permutation))
 }
 

@@ -1,9 +1,8 @@
-use crate::{BinaryNumber, PositionsError};
-use is_sorted::IsSorted;
-use itertools::Itertools;
+use crate::error::{validate_positions, IncompatibleDimensions, PositionsError};
+use crate::BinaryNumber;
 use std::collections::HashMap;
 use std::fmt;
-use std::ops::{Add, Deref};
+use std::ops::{Add, Deref, Mul};
 
 mod bitwise_operations;
 use bitwise_operations::BitwiseZipIter;
@@ -26,41 +25,6 @@ pub type SparseBinVec = SparseBinVecBase<Vec<usize>>;
 pub type SparseBinSlice<'a> = SparseBinVecBase<&'a [usize]>;
 
 impl SparseBinVec {
-    /// Creates a new vector with the given length
-    /// and list of non trivial positions.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use sparse_bin_mat::SparseBinVec;
-    /// let vector = SparseBinVec::new(5, vec![0, 2]);
-    ///
-    /// assert_eq!(vector.len(), 5);
-    /// assert_eq!(vector.weight(), 2);
-    ///
-    /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if a position is greater or equal to the length.
-    ///
-    /// ```should_panic
-    /// # use sparse_bin_mat::SparseBinVec;
-    /// let vector = SparseBinVec::new(2, vec![1, 3]);
-    /// ```
-    pub fn new(length: usize, mut positions: Vec<usize>) -> Self {
-        for position in positions.iter() {
-            if *position >= length {
-                panic!(
-                    "position {} is out of bound for length {}",
-                    position, length
-                );
-            }
-        }
-        positions.sort();
-        Self { positions, length }
-    }
-
     /// Creates a vector fill with zeros of the given length.
     ///
     /// # Example
@@ -73,7 +37,10 @@ impl SparseBinVec {
     /// assert_eq!(vector.weight(), 0);
     /// ```
     pub fn zeros(length: usize) -> Self {
-        Self::new(length, Vec::new())
+        Self {
+            length,
+            positions: Vec::new(),
+        }
     }
 
     /// Creates an empty vector.
@@ -112,89 +79,24 @@ impl SparseBinVec {
     }
 }
 
-impl<'a> SparseBinSlice<'a> {
-    /// Creates a new vector with the given length
-    /// and list of non trivial positions.
-    ///
-    /// This take a mutable reference to the positions in order to sort them.
-    /// If you know the positions are sorted, you can instead use
-    /// [`new_from_sorted`](SparseBinSlice::new_from_sorted).
+impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
+    /// Creates a new vector with the given length and list of non trivial positions.
     ///
     /// # Example
     ///
     /// ```
-    /// # use sparse_bin_mat::SparseBinSlice;
-    /// let mut positions = vec![2, 0];
-    /// let vector = SparseBinSlice::new(5, &mut positions);
+    /// # use sparse_bin_mat::SparseBinVec;
+    /// use sparse_bin_mat::error::PositionsError;
     ///
-    /// assert_eq!(vector.len(), 5);
-    /// assert_eq!(vector.weight(), 2);
-    /// assert_eq!(vector.non_trivial_positions().collect::<Vec<_>>(), vec![0, 2]);
-    /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if a position is greater or equal to the length.
-    ///
-    /// ```should_panic
-    /// # use sparse_bin_mat::SparseBinSlice;
-    /// let vector = SparseBinSlice::new(2, &mut [1, 3]);
-    /// ```
-    pub fn new(length: usize, positions: &'a mut [usize]) -> Self {
-        for position in positions.iter() {
-            if *position >= length {
-                panic!(
-                    "position {} is out of bound for length {}",
-                    position, length
-                );
-            }
-        }
-        positions.sort();
-        Self { positions, length }
-    }
-
-    /// Creates a new vector with the given length and a sorted list of non trivial positions.
-    ///
-    //// # Example
-    ///
-    /// ```
-    /// # use sparse_bin_mat::SparseBinSlice;
-    /// let mut positions = vec![0, 2];
-    /// let vector = SparseBinSlice::new_from_sorted(5, &positions);
+    /// let vector = SparseBinVec::new(5, vec![0, 2]);
     ///
     /// assert_eq!(vector.len(), 5);
     /// assert_eq!(vector.weight(), 2);
     /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if the list of positions is unsorted or if a position is greater or equal to the
-    /// length.
-    ///
-    /// ```should_panic
-    /// # use sparse_bin_mat::SparseBinSlice;
-    /// let mut positions = vec![2, 0];
-    /// let vector = SparseBinSlice::new_from_sorted(5, &positions);
-    /// ```
-    pub fn new_from_sorted(length: usize, positions: &'a [usize]) -> Self {
-        for position in positions.iter() {
-            if *position >= length {
-                panic!(
-                    "position {} is out of bound for length {}",
-                    position, length
-                );
-            }
-        }
-        // Waiting for the is_sorted API to stabilize in std.
-        // https://github.com/rust-lang/rust/issues/53485
-        if !IsSorted::is_sorted(&mut positions.iter()) {
-            panic!("positions are unsorted");
-        }
-        Self { length, positions }
+    pub fn new(length: usize, positions: T) -> Self {
+        Self::try_new(length, positions).unwrap()
     }
-}
 
-impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// Creates a new vector with the given length and list of non trivial positions
     /// or returns as error if the positions are unsorted, greater or equal to length
     /// or contain duplicates.
@@ -204,7 +106,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     ///
     /// ```
     /// # use sparse_bin_mat::SparseBinVec;
-    /// use sparse_bin_mat::PositionsError;
+    /// use sparse_bin_mat::error::PositionsError;
     ///
     /// let vector = SparseBinVec::try_new(5, vec![0, 2]);
     /// assert_eq!(vector, Ok(SparseBinVec::new(5, vec![0, 2])));
@@ -223,6 +125,11 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         Ok(Self { positions, length })
     }
 
+    // Positions should be sorted, in bound and all unique.
+    pub(crate) fn new_unchecked(length: usize, positions: T) -> Self {
+        Self { positions, length }
+    }
+
     /// Returns the length (number of elements) of the vector.
     pub fn len(&self) -> usize {
         self.length
@@ -238,7 +145,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         self.len() == 0
     }
 
-    /// Returns true of all the element in the vector are 0.
+    /// Returns true if all the element in the vector are 0.
     pub fn is_zero(&self) -> bool {
         self.weight() == 0
     }
@@ -269,7 +176,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         }
     }
 
-    /// Returns true if the value at the given position 0
+    /// Returns true if the value at the given position is 0
     /// or None if the position is out of bound.
     ///
     /// # Example
@@ -287,7 +194,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         self.get(position).map(|value| value == 0)
     }
 
-    /// Returns true if the value at the given position 1
+    /// Returns true if the value at the given position is 1
     /// or None if the position is out of bound.
     ///
     /// # Example
@@ -343,7 +250,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
             .non_trivial_positions()
             .chain(other.non_trivial_positions().map(|pos| pos + self.len()))
             .collect();
-        SparseBinVec::new(self.len() + other.len(), positions)
+        SparseBinVec::new_unchecked(self.len() + other.len(), positions)
     }
 
     /// Returns a new vector keeping only the given positions or an error
@@ -372,7 +279,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
             .non_trivial_positions()
             .filter_map(|position| old_to_new_positions_map.get(&position).cloned())
             .collect();
-        Ok(SparseBinVec::new(positions.len(), new_positions))
+        Ok(SparseBinVec::new_unchecked(positions.len(), new_positions))
     }
 
     /// Returns a truncated vector where the given positions are remove or an error
@@ -416,7 +323,8 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         }
     }
 
-    /// Returns the dot product of two vectors.
+    /// Returns the dot product of two vectors or an
+    /// error if the vectors have different length.
     ///
     /// # Example
     ///
@@ -426,32 +334,41 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// let second = SparseBinVec::new(4, vec![1, 2, 3]);
     /// let third = SparseBinVec::new(4, vec![0, 3]);
     ///
-    /// assert_eq!(first.dot_with(&second), 0);
-    /// assert_eq!(first.dot_with(&third), 1);
+    /// assert_eq!(first.dot_with(&second), Ok(0));
+    /// assert_eq!(first.dot_with(&third), Ok((1)));
     /// ```
     pub fn dot_with<S: Deref<Target = [usize]>>(
         &self,
         other: &SparseBinVecBase<S>,
-    ) -> BinaryNumber {
-        BitwiseZipIter::new(self.as_view(), other.as_view())
-            .fold(0, |sum, x| sum ^ x.first_row_value * x.second_row_value)
-    }
-}
-
-impl<S, T> Add<&SparseBinVecBase<S>> for &SparseBinVecBase<T>
-where
-    S: Deref<Target = [usize]>,
-    T: Deref<Target = [usize]>,
-{
-    type Output = SparseBinVec;
-
-    fn add(self, other: &SparseBinVecBase<S>) -> SparseBinVec {
+    ) -> Result<BinaryNumber, IncompatibleDimensions<usize, usize>> {
         if self.len() != other.len() {
-            panic!(
-                "vector of length {} can't be added to vector of length {}",
-                self.len(),
-                other.len()
-            );
+            return Err(IncompatibleDimensions::new(self.len(), other.len()));
+        }
+        Ok(BitwiseZipIter::new(self.as_view(), other.as_view())
+            .fold(0, |sum, x| sum ^ x.first_row_value * x.second_row_value))
+    }
+
+    /// Returns the bitwise xor of two vectors or an
+    /// error if the vectors have different length.
+    ///
+    /// Use the Add (+) operator if you want a version
+    /// that panics instead or returning an error.
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinVec;
+    /// let first = SparseBinVec::new(4, vec![0, 1, 2]);
+    /// let second = SparseBinVec::new(4, vec![1, 2, 3]);
+    /// let third = SparseBinVec::new(4, vec![0, 3]);
+    ///
+    /// assert_eq!(first.bitwise_xor_with(&second), Ok(third));
+    /// ```
+    pub fn bitwise_xor_with<S: Deref<Target = [usize]>>(
+        &self,
+        other: &SparseBinVecBase<S>,
+    ) -> Result<SparseBinVec, IncompatibleDimensions<usize, usize>> {
+        if self.len() != other.len() {
+            return Err(IncompatibleDimensions::new(self.len(), other.len()));
         }
         let positions = BitwiseZipIter::new(self.as_view(), other.as_view())
             .filter_map(|x| {
@@ -462,7 +379,39 @@ where
                 }
             })
             .collect();
-        SparseBinVec::new(self.len(), positions)
+        Ok(SparseBinVec::new_unchecked(self.len(), positions))
+    }
+}
+
+impl<S, T> Add<&SparseBinVecBase<S>> for &SparseBinVecBase<T>
+where
+    S: Deref<Target = [usize]>,
+    T: Deref<Target = [usize]>,
+{
+    type Output = SparseBinVec;
+
+    fn add(self, other: &SparseBinVecBase<S>) -> Self::Output {
+        self.bitwise_xor_with(other).expect(&format!(
+            "vector of length {} can't be added to vector of length {}",
+            self.len(),
+            other.len()
+        ))
+    }
+}
+
+impl<S, T> Mul<&SparseBinVecBase<S>> for &SparseBinVecBase<T>
+where
+    S: Deref<Target = [usize]>,
+    T: Deref<Target = [usize]>,
+{
+    type Output = BinaryNumber;
+
+    fn mul(self, other: &SparseBinVecBase<S>) -> Self::Output {
+        self.dot_with(other).expect(&format!(
+            "vector of length {} can't be dotted to vector of length {}",
+            self.len(),
+            other.len()
+        ))
     }
 }
 
@@ -472,47 +421,22 @@ impl<T: Deref<Target = [usize]>> fmt::Display for SparseBinVecBase<T> {
     }
 }
 
-fn validate_positions(length: usize, positions: &[usize]) -> Result<(), PositionsError> {
-    for position in positions.iter() {
-        if *position >= length {
-            return Result::Err(PositionsError::OutOfBound);
-        }
-    }
-    if !IsSorted::is_sorted(&mut positions.iter()) {
-        return Result::Err(PositionsError::Unsorted);
-    }
-    if positions.iter().unique().count() != positions.len() {
-        return Result::Err(PositionsError::Duplicated);
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
-    fn positions_are_sorted_on_construction() {
-        let vector = SparseBinVec::new(4, vec![3, 0, 2]);
-
-        assert_eq!(
-            vector.non_trivial_positions().collect::<Vec<_>>(),
-            vec![0, 2, 3]
-        )
-    }
-
-    #[test]
     fn addition() {
-        let first_vector = SparseBinVec::new(6, vec![0, 2, 4]);
-        let second_vector = SparseBinVec::new(6, vec![0, 1, 2]);
-        let sum = SparseBinVec::new(6, vec![1, 4]);
+        let first_vector = SparseBinVec::new_unchecked(6, vec![0, 2, 4]);
+        let second_vector = SparseBinVec::new_unchecked(6, vec![0, 1, 2]);
+        let sum = SparseBinVec::new_unchecked(6, vec![1, 4]);
         assert_eq!(&first_vector + &second_vector, sum);
     }
 
     #[test]
     fn panics_on_addition_if_different_length() {
-        let vector_6 = SparseBinVec::new(6, vec![0, 2, 4]);
-        let vector_2 = SparseBinVec::new(2, vec![0]);
+        let vector_6 = SparseBinVec::new_unchecked(6, vec![0, 2, 4]);
+        let vector_2 = SparseBinVec::new_unchecked(2, vec![0]);
 
         let result = std::panic::catch_unwind(|| &vector_6 + &vector_2);
         assert!(result.is_err());

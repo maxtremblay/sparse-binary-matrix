@@ -76,13 +76,9 @@ impl GaussJordan {
         let mut row_index = 0;
         while row_index < self.rows.len() {
             if self.row_at_index_start_at_active_column(row_index) {
-                self.rows[row_index] =
-                    (&SparseBinSlice::new_from_sorted(self.number_of_columns, pivot)
-                        + &SparseBinSlice::new_from_sorted(
-                            self.number_of_columns,
-                            &self.rows[row_index],
-                        ))
-                        .to_positions_vec();
+                self.rows[row_index] = (&SparseBinSlice::new(self.number_of_columns, pivot)
+                    + &SparseBinSlice::new(self.number_of_columns, &self.rows[row_index]))
+                    .to_positions_vec();
                 if self.rows[row_index].is_empty() {
                     self.rows.swap_remove(row_index);
                     continue;
@@ -107,7 +103,7 @@ mod test {
         let rank = GaussJordan::new(&matrix).rank();
         assert_eq!(rank, 0);
 
-        let rows = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4], vec![4, 0]];
+        let rows = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4], vec![0, 4]];
         let matrix = SparseBinMat::new(5, rows);
         let rank = GaussJordan::new(&matrix).rank();
         assert_eq!(rank, 4);

@@ -1,14 +1,17 @@
+use crate::error::{
+    validate_positions, MatMatIncompatibleDimensions, MatVecIncompatibleDimensions, PositionsError,
+};
 use crate::BinaryNumber;
 use crate::{SparseBinSlice, SparseBinVec, SparseBinVecBase};
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::ops::{Add, Mul};
+use std::ops::{Add, Deref, Mul};
 
 mod concat;
 use concat::{concat_horizontally, concat_vertically};
 
 mod constructor_utils;
-use constructor_utils::{assert_rows_are_inbound, initialize_from};
+use constructor_utils::initialize_from;
 
 mod gauss_jordan;
 use gauss_jordan::GaussJordan;
@@ -32,7 +35,7 @@ pub struct SparseBinMat {
 
 impl SparseBinMat {
     /// Creates a new matrix with the given number of columns
-    /// and list of rows.
+    /// and list of rows .
     ///
     /// A row is a list of the positions where the elements have value 1.
     /// All rows are sorted during insertion.
@@ -50,15 +53,40 @@ impl SparseBinMat {
     ///
     /// # Panic
     ///
-    /// Panics if a position in a row is greater or equal to
-    /// the number of columns.
-    ///
-    /// ```should_panic
-    /// # use sparse_bin_mat::SparseBinMat;
-    /// let matrix = SparseBinMat::new(2, vec![vec![1, 2], vec![3, 0]]);
-    /// ```
+    /// Panics if a position in a row is greater or equal the number of columns,
+    /// a row is unsorted or a row contains duplicate.
     pub fn new(number_of_columns: usize, rows: Vec<Vec<usize>>) -> Self {
-        assert_rows_are_inbound(number_of_columns, &rows);
+        Self::try_new(number_of_columns, rows).unwrap()
+    }
+
+    /// Creates a new matrix with the given number of columns
+    /// and list of rows or returns an error if a position in a
+    /// row is greater or equal the number of columns, a row is unsorted
+    /// or a row contains duplicate.
+    ///
+    /// A row is a list of the positions where the elements have value 1.
+    /// All rows are sorted during insertion.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let first_matrix = SparseBinMat::try_new(4, vec![vec![0, 1, 2], vec![0, 2, 3]]);
+    /// let second_matrix = SparseBinMat::new(4, vec![vec![0, 1, 2], vec![0, 2, 3]]);
+    /// assert_eq!(first_matrix, Ok(second_matrix));
+    /// ```
+    pub fn try_new(
+        number_of_columns: usize,
+        rows: Vec<Vec<usize>>,
+    ) -> Result<Self, PositionsError> {
+        for row in rows.iter() {
+            validate_positions(number_of_columns, row)?;
+        }
+        Ok(Self::new_unchecked(number_of_columns, rows))
+    }
+
+    // Assumes rows are sorted, all unique and inbound.
+    pub(crate) fn new_unchecked(number_of_columns: usize, rows: Vec<Vec<usize>>) -> Self {
         let (row_ranges, column_indices) = initialize_from(rows);
         Self {
             row_ranges,
@@ -102,7 +130,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.number_of_ones(), 0);
     /// ```
     pub fn zeros(number_of_rows: usize, number_of_columns: usize) -> Self {
-        Self::new(number_of_columns, vec![Vec::new(); number_of_rows])
+        Self::new_unchecked(number_of_columns, vec![Vec::new(); number_of_rows])
     }
 
     /// Creates an empty matrix.
@@ -243,17 +271,20 @@ impl SparseBinMat {
     /// let rows = vec![vec![0, 1], vec![1, 2]];
     /// let matrix = SparseBinMat::new(3, rows.clone());
     ///
-    /// assert_eq!(matrix.row(0), Some(SparseBinSlice::new_from_sorted(3, &rows[0])));
-    /// assert_eq!(matrix.row(1), Some(SparseBinSlice::new_from_sorted(3, &rows[1])));
+    /// assert_eq!(matrix.row(0), Some(SparseBinSlice::new(3, &rows[0])));
+    /// assert_eq!(matrix.row(1), Some(SparseBinSlice::new(3, &rows[1])));
     /// assert_eq!(matrix.row(2), None);
     /// ```
     pub fn row(&self, row: usize) -> Option<SparseBinSlice> {
         let row_start = self.row_ranges.get(row)?;
         let row_end = self.row_ranges.get(row + 1)?;
-        Some(SparseBinSlice::new_from_sorted(
-            self.number_of_columns(),
-            &self.column_indices[*row_start..*row_end],
-        ))
+        Some(
+            SparseBinSlice::try_new(
+                self.number_of_columns(),
+                &self.column_indices[*row_start..*row_end],
+            )
+            .unwrap(),
+        )
     }
 
     /// Returns an iterator yielding the rows of the matrix
@@ -268,10 +299,10 @@ impl SparseBinMat {
     ///
     /// let mut iter = matrix.rows();
     ///
-    /// assert_eq!(iter.next(), Some(SparseBinSlice::new_from_sorted(7, &rows[0])));
-    /// assert_eq!(iter.next(), Some(SparseBinSlice::new_from_sorted(7, &rows[1])));
-    /// assert_eq!(iter.next(), Some(SparseBinSlice::new_from_sorted(7, &rows[2])));
-    /// assert_eq!(iter.next(), Some(SparseBinSlice::new_from_sorted(7, &rows[3])));
+    /// assert_eq!(iter.next(), Some(SparseBinSlice::new(7, &rows[0])));
+    /// assert_eq!(iter.next(), Some(SparseBinSlice::new(7, &rows[1])));
+    /// assert_eq!(iter.next(), Some(SparseBinSlice::new(7, &rows[2])));
+    /// assert_eq!(iter.next(), Some(SparseBinSlice::new(7, &rows[3])));
     /// assert_eq!(iter.next(), None);
     /// ```
     pub fn rows(&self) -> Rows {
@@ -344,11 +375,8 @@ impl SparseBinMat {
     ///
     /// ```
     /// # use sparse_bin_mat::SparseBinMat;
-    /// let rows = vec![vec![0, 1, 2], vec![0], vec![1, 2], vec![0, 2]];
-    /// let matrix = SparseBinMat::new(3, rows);
-    ///
+    /// let matrix = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![0], vec![1, 2], vec![0, 2]]);
     /// let expected = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![1], vec![2]]);
-    ///
     /// assert_eq!(matrix.echelon_form(), expected);
     /// ```
     pub fn echelon_form(&self) -> Self {
@@ -406,6 +434,9 @@ impl SparseBinMat {
 
     /// Returns the vertical concatenation of two matrices.
     ///
+    /// If the matrix have different number of columns, the smallest
+    /// one is padded with empty columns.
+    ///
     /// # Example
     ///
     /// ```
@@ -414,27 +445,29 @@ impl SparseBinMat {
     /// let right_matrix = SparseBinMat::identity(3);
     ///
     /// let concatened = left_matrix.vertical_concat_with(&right_matrix);
-    ///
     /// let expected = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2], vec![0], vec![1], vec![2]]);
     ///
-    /// assert_eq!(concatened, expected);
+    /// assert_eq!(concatened, Ok(expected));
     /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if the matrices have a different number of columns.
-    pub fn vertical_concat_with(&self, other: &SparseBinMat) -> SparseBinMat {
+    pub fn vertical_concat_with(
+        &self,
+        other: &SparseBinMat,
+    ) -> Result<SparseBinMat, MatMatIncompatibleDimensions> {
         if self.number_of_columns() != other.number_of_columns() {
-            panic!(
-                "{} and {} matrices can't be concatenated vertically",
-                dimension_to_string(self.dimension()),
-                dimension_to_string(other.dimension()),
-            );
+            return Err(MatMatIncompatibleDimensions::new(
+                self.dimension(),
+                other.dimension(),
+            ));
         }
-        concat_vertically(self, other)
+        Ok(concat_vertically(self, other))
     }
 
-    /// Returns the dot product between a matrix and a vector.
+    /// Returns the dot product between a matrix and a vector or an error
+    /// if the number of columns in the matrix is not equal to the length of
+    /// the vector.
+    ///
+    /// Use the Mul (*) operator for a version that panics instead of
+    /// returning a `Result`.
     ///
     /// # Example
     ///
@@ -444,39 +477,105 @@ impl SparseBinMat {
     /// let vector = SparseBinVec::new(3, vec![0, 1]);
     /// let result = SparseBinVec::new(2, vec![1]);
     ///
-    /// assert_eq!(matrix.dot_with(&vector), result);
+    /// assert_eq!(matrix.dot_with_vector(&vector), Ok(result));
     /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if the number of columns of the matrix is different from the
-    ///
-    /// ```should_panic
-    /// # use sparse_bin_mat::{SparseBinMat, SparseBinVec};
-    /// let matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
-    /// let vector = SparseBinVec::new(2, vec![0, 1]);
-    /// matrix.dot_with(&vector);
-    /// ```
-    pub fn dot_with<T>(&self, vector: &SparseBinVecBase<T>) -> SparseBinVec
+    pub fn dot_with_vector<T>(
+        &self,
+        vector: &SparseBinVecBase<T>,
+    ) -> Result<SparseBinVec, MatVecIncompatibleDimensions>
     where
         T: std::ops::Deref<Target = [usize]>,
     {
         if self.number_of_columns() != vector.len() {
-            panic!(
-                "{} matrix can't be dotted with vector of length {}",
-                dimension_to_string(self.dimension()),
-                vector.len()
-            );
+            return Err(MatVecIncompatibleDimensions::new(
+                self.dimension(),
+                vector.len(),
+            ));
         }
         let positions = self
             .rows()
-            .map(|row| row.dot_with(vector))
+            .map(|row| row.dot_with(vector).unwrap())
             .positions(|product| product == 1)
             .collect();
-        SparseBinVec::new(self.number_of_rows(), positions)
+        Ok(SparseBinVec::new_unchecked(
+            self.number_of_rows(),
+            positions,
+        ))
     }
 
-    /// Returns a new matrix keeping only the given rows.
+    /// Returns the dot product between two matrices or an error
+    /// if the number of columns in the first matrix is not equal
+    /// to the number of rows in the second matrix.
+    ///
+    /// Use the Mul (*) operator for a version that panics instead of
+    /// returning a `Result`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+    /// let other_matrix = SparseBinMat::new(4, vec![vec![1], vec![2], vec![3]]);
+    /// let result = SparseBinMat::new(4, vec![vec![1, 2], vec![2, 3]]);
+    ///
+    /// assert_eq!(matrix.dot_with_matrix(&other_matrix), Ok(result));
+    /// ```
+    pub fn dot_with_matrix(
+        &self,
+        other: &Self,
+    ) -> Result<SparseBinMat, MatMatIncompatibleDimensions> {
+        if self.number_of_columns() != other.number_of_rows() {
+            return Err(MatMatIncompatibleDimensions::new(
+                self.dimension(),
+                other.dimension(),
+            ));
+        }
+        let transposed = other.transposed();
+        let rows = self
+            .rows()
+            .map(|row| {
+                transposed
+                    .rows()
+                    .positions(|column| row.dot_with(&column).unwrap() == 1)
+                    .collect()
+            })
+            .collect();
+        Ok(Self::new_unchecked(other.number_of_columns, rows))
+    }
+
+    /// Returns the bitwise xor sum of two matrices or an error
+    /// if the matrices have different dimensions.
+    ///
+    /// Use the Add (+) operator for a version that panics instead
+    /// of returning a `Result`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::{SparseBinMat, SparseBinVec};
+    /// let matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+    /// let other_matrix = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![0, 1, 2]]);
+    /// let result = SparseBinMat::new(3, vec![vec![2], vec![0]]);
+    ///
+    /// assert_eq!(matrix.bitwise_xor_with(&other_matrix), Ok(result));
+    /// ```
+    pub fn bitwise_xor_with(&self, other: &Self) -> Result<Self, MatMatIncompatibleDimensions> {
+        if self.dimension() != other.dimension() {
+            return Err(MatMatIncompatibleDimensions::new(
+                self.dimension(),
+                other.dimension(),
+            ));
+        }
+        let rows = self
+            .rows()
+            .zip(other.rows())
+            .map(|(row, other_row)| row.bitwise_xor_with(&other_row).unwrap().to_positions_vec())
+            .collect();
+        Ok(SparseBinMat::new_unchecked(self.number_of_columns(), rows))
+    }
+
+    /// Returns a new matrix keeping only the given rows or an error
+    /// if rows are out of bound, unsorted or not unique.
     ///
     /// # Example
     ///
@@ -494,25 +593,22 @@ impl SparseBinMat {
     ///     vec![0, 2, 4],
     /// ]);
     ///
-    /// assert_eq!(matrix.keep_only_rows(&[0, 2]), truncated);
-    /// assert_eq!(matrix.keep_only_rows(&[0, 2, 3]).number_of_rows(), 3);
+    /// assert_eq!(matrix.keep_only_rows(&[0, 2]), Ok(truncated));
+    /// assert_eq!(matrix.keep_only_rows(&[0, 2, 3]).unwrap().number_of_rows(), 3);
     /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if some rows are out of bound.
-    pub fn keep_only_rows(&self, rows: &[usize]) -> Self {
-        self.assert_rows_are_inbound(rows);
+    pub fn keep_only_rows(&self, rows: &[usize]) -> Result<Self, PositionsError> {
+        validate_positions(self.number_of_rows(), rows)?;
         let rows = self
             .rows()
             .enumerate()
             .filter(|(index, _)| rows.contains(index))
             .map(|(_, row)| row.non_trivial_positions().collect())
             .collect();
-        Self::new(self.number_of_columns(), rows)
+        Ok(Self::new_unchecked(self.number_of_columns(), rows))
     }
 
-    /// Returns a truncated matrix where the given rows are removed.
+    /// Returns a truncated matrix where the given rows are removed or an error
+    /// if rows are out of bound or unsorted.
     ///
     /// # Example
     ///
@@ -530,32 +626,18 @@ impl SparseBinMat {
     ///     vec![1, 3],
     /// ]);
     ///
-    /// assert_eq!(matrix.without_rows(&[0, 2]), truncated);
-    /// assert_eq!(matrix.without_rows(&[1, 2, 3]).number_of_rows(), 1);
+    /// assert_eq!(matrix.without_rows(&[0, 2]), Ok(truncated));
+    /// assert_eq!(matrix.without_rows(&[1, 2, 3]).unwrap().number_of_rows(), 1);
     /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if some rows are out of bound.
-    pub fn without_rows(&self, rows: &[usize]) -> Self {
+    pub fn without_rows(&self, rows: &[usize]) -> Result<Self, PositionsError> {
         let to_keep: Vec<usize> = (0..self.number_of_rows())
             .filter(|x| !rows.contains(x))
             .collect();
         self.keep_only_rows(&to_keep)
     }
 
-    fn assert_rows_are_inbound(&self, rows: &[usize]) {
-        for row in rows {
-            if *row >= self.number_of_columns() {
-                panic!(
-                    "row {} is out of bound for {} matrix",
-                    row,
-                    dimension_to_string(self.dimension())
-                );
-            }
-        }
-    }
-    /// Returns a new matrix keeping only the given columns.
+    /// Returns a new matrix keeping only the given columns or an error
+    /// if columns are out of bound, unsorted or not unique.
     ///
     /// Columns are relabeled to the fit new number of columns.
     ///
@@ -577,15 +659,11 @@ impl SparseBinMat {
     ///     vec![1],
     /// ]);
     ///
-    /// assert_eq!(matrix.keep_only_columns(&[0, 1, 4]), truncated);
-    /// assert_eq!(matrix.keep_only_columns(&[1, 2]).number_of_columns(), 2);
+    /// assert_eq!(matrix.keep_only_columns(&[0, 1, 4]), Ok(truncated));
+    /// assert_eq!(matrix.keep_only_columns(&[1, 2]).unwrap().number_of_columns(), 2);
     /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if some columns are out of bound.
-    pub fn keep_only_columns(&self, columns: &[usize]) -> Self {
-        self.assert_columns_are_inbound(columns);
+    pub fn keep_only_columns(&self, columns: &[usize]) -> Result<Self, PositionsError> {
+        validate_positions(self.number_of_columns(), columns)?;
         let old_to_new_column_map = columns
             .iter()
             .enumerate()
@@ -599,10 +677,11 @@ impl SparseBinMat {
                     .collect()
             })
             .collect();
-        Self::new(columns.len(), rows)
+        Ok(Self::new_unchecked(columns.len(), rows))
     }
 
-    /// Returns a truncated matrix where the given columns are removed.
+    /// Returns a truncated matrix where the given columns are removed or
+    /// an error if columns are out of bound or unsorted.
     ///
     /// Columns are relabeled to fit the new number of columns.
     ///
@@ -624,29 +703,13 @@ impl SparseBinMat {
     ///     vec![0, 1],
     /// ]);
     ///
-    /// assert_eq!(matrix.without_columns(&[0, 2]), truncated);
+    /// assert_eq!(matrix.without_columns(&[0, 2]), Ok(truncated));
     /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if some columns are out of bound.
-    pub fn without_columns(&self, columns: &[usize]) -> Self {
+    pub fn without_columns(&self, columns: &[usize]) -> Result<Self, PositionsError> {
         let to_keep: Vec<usize> = (0..self.number_of_columns)
             .filter(|x| !columns.contains(x))
             .collect();
         self.keep_only_columns(&to_keep)
-    }
-
-    fn assert_columns_are_inbound(&self, columns: &[usize]) {
-        for column in columns {
-            if *column >= self.number_of_columns() {
-                panic!(
-                    "column {} is out of bound for {} matrix",
-                    column,
-                    dimension_to_string(self.dimension())
-                );
-            }
-        }
     }
 }
 
@@ -654,20 +717,11 @@ impl Add<&SparseBinMat> for &SparseBinMat {
     type Output = SparseBinMat;
 
     fn add(self, other: &SparseBinMat) -> SparseBinMat {
-        if self.dimension() != other.dimension() {
-            panic!(
-                "{} and {} matrices can't be added",
-                dimension_to_string(self.dimension()),
-                dimension_to_string(other.dimension()),
-            );
-        }
-        let rows = self
-            .rows()
-            .zip(other.rows())
-            .map(|(row, other_row)| &row + &other_row)
-            .map(|sum| sum.non_trivial_positions().collect_vec())
-            .collect();
-        SparseBinMat::new(self.number_of_columns(), rows)
+        self.bitwise_xor_with(other).expect(&format!(
+            "{} and {} matrices can't be added",
+            dimension_to_string(self.dimension()),
+            dimension_to_string(other.dimension()),
+        ))
     }
 }
 
@@ -675,24 +729,23 @@ impl Mul<&SparseBinMat> for &SparseBinMat {
     type Output = SparseBinMat;
 
     fn mul(self, other: &SparseBinMat) -> SparseBinMat {
-        if self.number_of_columns() != other.number_of_rows() {
-            panic!(
-                "{} and {} matrices can't be multiplied",
-                dimension_to_string(self.dimension()),
-                dimension_to_string(other.dimension()),
-            );
-        }
-        let other_transposed = other.transposed();
-        let rows = self
-            .rows()
-            .map(|row| {
-                other_transposed
-                    .rows()
-                    .positions(|column| row.dot_with(&column) == 1)
-                    .collect()
-            })
-            .collect();
-        SparseBinMat::new(other.number_of_columns(), rows)
+        self.dot_with_matrix(other).expect(&format!(
+            "{} and {} matrices can't be multiplied",
+            dimension_to_string(self.dimension()),
+            dimension_to_string(other.dimension()),
+        ))
+    }
+}
+
+impl<T: Deref<Target = [usize]>> Mul<&SparseBinVecBase<T>> for &SparseBinMat {
+    type Output = SparseBinVec;
+
+    fn mul(self, other: &SparseBinVecBase<T>) -> SparseBinVec {
+        self.dot_with_vector(other).expect(&format!(
+            "{} matrix can't be multiplied with vector of length {}",
+            dimension_to_string(self.dimension()),
+            other.len()
+        ))
     }
 }
 
@@ -712,16 +765,6 @@ impl std::fmt::Display for SparseBinMat {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn rows_are_sorted_on_construction() {
-        let rows = vec![vec![1, 0], vec![0, 2, 1], vec![1, 2, 3]];
-        let matrix = SparseBinMat::new(4, rows);
-
-        assert_eq!(matrix.row(0).unwrap().as_slice(), &[0, 1]);
-        assert_eq!(matrix.row(1).unwrap().as_slice(), &[0, 1, 2]);
-        assert_eq!(matrix.row(2).unwrap().as_slice(), &[1, 2, 3]);
-    }
 
     #[test]
     #[should_panic]

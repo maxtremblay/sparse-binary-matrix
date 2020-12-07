@@ -33,7 +33,7 @@
 //! assert_eq!(matrix.get(0, 7), None);
 //! ```
 //!
-//! Adition and multiplication are implemented between matrix references.
+//! Addition and multiplication are implemented between matrix references.
 //!
 //! ```
 //! # use sparse_bin_mat::SparseBinMat;
@@ -61,8 +61,7 @@
 
 type BinaryNumber = u8;
 
-mod error;
-pub use error::PositionsError;
+pub mod error;
 
 mod matrix;
 pub use matrix::{Rows, SparseBinMat};
