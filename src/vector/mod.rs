@@ -1,5 +1,6 @@
-use crate::BinaryNumber;
+use crate::{BinaryNumber, PositionsError};
 use is_sorted::IsSorted;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Add, Deref};
@@ -194,6 +195,34 @@ impl<'a> SparseBinSlice<'a> {
 }
 
 impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
+    /// Creates a new vector with the given length and list of non trivial positions
+    /// or returns as error if the positions are unsorted, greater or equal to length
+    /// or contain duplicates.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinVec;
+    /// use sparse_bin_mat::PositionsError;
+    ///
+    /// let vector = SparseBinVec::try_new(5, vec![0, 2]);
+    /// assert_eq!(vector, Ok(SparseBinVec::new(5, vec![0, 2])));
+    ///
+    /// let vector = SparseBinVec::try_new(5, vec![2, 0]);
+    /// assert_eq!(vector, Err(PositionsError::Unsorted));
+    ///
+    /// let vector = SparseBinVec::try_new(5, vec![0, 10]);
+    /// assert_eq!(vector, Err(PositionsError::OutOfBound));
+    ///
+    /// let vector = SparseBinVec::try_new(5, vec![0, 0]);
+    /// assert_eq!(vector, Err(PositionsError::Duplicated));
+    /// ```
+    pub fn try_new(length: usize, positions: T) -> Result<Self, PositionsError> {
+        validate_positions(length, &positions)?;
+        Ok(Self { positions, length })
+    }
+
     /// Returns the length (number of elements) of the vector.
     pub fn len(&self) -> usize {
         self.length
@@ -317,7 +346,8 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         SparseBinVec::new(self.len() + other.len(), positions)
     }
 
-    /// Returns a new vector keeping only the given positions.
+    /// Returns a new vector keeping only the given positions or an error
+    /// if the positions are unsorted, out of bound or contain deplicate.
     ///
     /// Positions are relabeled to the fit new number of positions.
     ///
@@ -328,23 +358,11 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// let vector = SparseBinVec::new(5, vec![0, 2, 4]);
     /// let truncated = SparseBinVec::new(3, vec![0, 2]);
     ///
-    /// assert_eq!(vector.keep_only_positions(&[0, 1, 2]), truncated);
-    /// assert_eq!(vector.keep_only_positions(&[1, 2]).len(), 2);
+    /// assert_eq!(vector.keep_only_positions(&[0, 1, 2]), Ok(truncated));
+    /// assert_eq!(vector.keep_only_positions(&[1, 2]).map(|vec| vec.len()), Ok(2));
     /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if some positions are out of bound.
-    pub fn keep_only_positions(&self, positions: &[usize]) -> SparseBinVec {
-        for position in positions {
-            if *position >= self.len() {
-                panic!(
-                    "position {} is out of bound for length {}",
-                    position,
-                    self.len()
-                );
-            }
-        }
+    pub fn keep_only_positions(&self, positions: &[usize]) -> Result<SparseBinVec, PositionsError> {
+        validate_positions(self.length, positions)?;
         let old_to_new_positions_map = positions
             .iter()
             .enumerate()
@@ -354,10 +372,11 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
             .non_trivial_positions()
             .filter_map(|position| old_to_new_positions_map.get(&position).cloned())
             .collect();
-        SparseBinVec::new(positions.len(), new_positions)
+        Ok(SparseBinVec::new(positions.len(), new_positions))
     }
 
-    /// Returns a truncated vector where the given positions are removed.
+    /// Returns a truncated vector where the given positions are remove or an error
+    /// if the positions are unsorted or out of bound.
     ///
     /// Positions are relabeled to fit the new number of positions.
     ///
@@ -368,14 +387,10 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// let vector = SparseBinVec::new(5, vec![0, 2, 4]);
     /// let truncated = SparseBinVec::new(3, vec![0, 2]);
     ///
-    /// assert_eq!(vector.without_positions(&[3, 4]), truncated);
-    /// assert_eq!(vector.without_positions(&[1, 2]).len(), 3);
+    /// assert_eq!(vector.without_positions(&[3, 4]), Ok(truncated));
+    /// assert_eq!(vector.without_positions(&[1, 2]).map(|vec| vec.len()), Ok(3));
     /// ```
-    ///
-    /// # Panic
-    ///
-    /// Panics if some positions are out of bound.
-    pub fn without_positions(&self, positions: &[usize]) -> SparseBinVec {
+    pub fn without_positions(&self, positions: &[usize]) -> Result<SparseBinVec, PositionsError> {
         let to_keep: Vec<usize> = (0..self.len()).filter(|x| !positions.contains(x)).collect();
         self.keep_only_positions(&to_keep)
     }
@@ -455,6 +470,21 @@ impl<T: Deref<Target = [usize]>> fmt::Display for SparseBinVecBase<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.positions.deref())
     }
+}
+
+fn validate_positions(length: usize, positions: &[usize]) -> Result<(), PositionsError> {
+    for position in positions.iter() {
+        if *position >= length {
+            return Result::Err(PositionsError::OutOfBound);
+        }
+    }
+    if !IsSorted::is_sorted(&mut positions.iter()) {
+        return Result::Err(PositionsError::Unsorted);
+    }
+    if positions.iter().unique().count() != positions.len() {
+        return Result::Err(PositionsError::Duplicated);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
