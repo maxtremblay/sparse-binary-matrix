@@ -67,4 +67,4 @@ mod matrix;
 pub use matrix::{Rows, SparseBinMat};
 
 mod vector;
-pub use vector::{SparseBinSlice, SparseBinVec, SparseBinVecBase};
+pub use vector::{NonTrivialPositions, SparseBinSlice, SparseBinVec, SparseBinVecBase};
