@@ -313,6 +313,30 @@ impl SparseBinMat {
         Rows::from(self)
     }
 
+    /// Returns an iterator yielding the positions of the non
+    /// trivial elements.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::{SparseBinSlice, SparseBinMat};
+    /// let rows = vec![vec![0, 2], vec![1], vec![0, 2], vec![1]];
+    /// let matrix = SparseBinMat::new(3, rows);
+    ///
+    /// let mut iter = matrix.non_trivial_elements();
+    ///
+    /// assert_eq!(iter.next(), Some((0, 0)));
+    /// assert_eq!(iter.next(), Some((0, 2)));
+    /// assert_eq!(iter.next(), Some((1, 1)));
+    /// assert_eq!(iter.next(), Some((2, 0)));
+    /// assert_eq!(iter.next(), Some((2, 2)));
+    /// assert_eq!(iter.next(), Some((3, 1)));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    pub fn non_trivial_elements(&self) -> NonTrivialElements {
+        NonTrivialElements::new(self)
+    }
+
     /// Returns an iterator yielding the number
     /// of non zero elements in each row of the matrix.
     ///
