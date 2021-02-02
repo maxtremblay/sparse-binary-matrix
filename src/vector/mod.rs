@@ -226,8 +226,11 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// assert_eq!(iter.next(), Some(3));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn non_trivial_positions<'a>(&'a self) -> impl Iterator<Item = usize> + 'a {
-        self.positions.iter().cloned()
+    pub fn non_trivial_positions<'a>(&'a self) -> NonTrivialPositions<'a> {
+        NonTrivialPositions {
+            positions: &self.positions,
+            index: 0,
+        }
     }
 
     /// Returns the concatenation of two vectors.
@@ -421,6 +424,22 @@ where
 impl<T: Deref<Target = [usize]>> fmt::Display for SparseBinVecBase<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.positions.deref())
+    }
+}
+
+pub struct NonTrivialPositions<'vec> {
+    positions: &'vec [usize],
+    index: usize,
+}
+
+impl<'vec> Iterator for NonTrivialPositions<'vec> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.positions.get(self.index).map(|position| {
+            self.index += 1;
+            *position
+        })
     }
 }
 
