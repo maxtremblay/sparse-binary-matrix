@@ -64,7 +64,7 @@ type BinaryNumber = u8;
 pub mod error;
 
 mod matrix;
-pub use matrix::{Rows, SparseBinMat};
+pub use matrix::{NonTrivialElements, Rows, SparseBinMat};
 
 mod vector;
 pub use vector::{NonTrivialPositions, SparseBinSlice, SparseBinVec, SparseBinVecBase};
