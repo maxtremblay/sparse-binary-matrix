@@ -427,6 +427,8 @@ impl<T: Deref<Target = [usize]>> fmt::Display for SparseBinVecBase<T> {
     }
 }
 
+/// An iterator over all non trivial positions of
+/// a sparse binary vector.
 pub struct NonTrivialPositions<'vec> {
     positions: &'vec [usize],
     index: usize,
