@@ -17,6 +17,9 @@ use constructor_utils::initialize_from;
 mod gauss_jordan;
 use gauss_jordan::GaussJordan;
 
+mod non_trivial_elements;
+pub use self::non_trivial_elements::NonTrivialElements;
+
 mod nullspace;
 use nullspace::nullspace;
 
