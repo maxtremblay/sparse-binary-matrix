@@ -1,5 +1,6 @@
 use crate::error::{validate_positions, IncompatibleDimensions, InvalidPositions};
 use crate::BinaryNumber;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Add, Deref, Mul};
@@ -15,7 +16,7 @@ use bitwise_operations::BitwiseZipIter;
 /// Most of the time, you want to create a owned version.
 /// However, some iterators, such as those defined on [`SparseBinMat`](crate::SparseBinMat)
 /// returns the borrowed version.
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct SparseBinVecBase<T> {
     positions: T,
     length: usize,
@@ -452,18 +453,26 @@ mod test {
 
     #[test]
     fn addition() {
-        let first_vector = SparseBinVec::new_unchecked(6, vec![0, 2, 4]);
-        let second_vector = SparseBinVec::new_unchecked(6, vec![0, 1, 2]);
-        let sum = SparseBinVec::new_unchecked(6, vec![1, 4]);
+        let first_vector = SparseBinVec::new(6, vec![0, 2, 4]);
+        let second_vector = SparseBinVec::new(6, vec![0, 1, 2]);
+        let sum = SparseBinVec::new(6, vec![1, 4]);
         assert_eq!(&first_vector + &second_vector, sum);
     }
 
     #[test]
     fn panics_on_addition_if_different_length() {
-        let vector_6 = SparseBinVec::new_unchecked(6, vec![0, 2, 4]);
-        let vector_2 = SparseBinVec::new_unchecked(2, vec![0]);
+        let vector_6 = SparseBinVec::new(6, vec![0, 2, 4]);
+        let vector_2 = SparseBinVec::new(2, vec![0]);
 
         let result = std::panic::catch_unwind(|| &vector_6 + &vector_2);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn ser_de() {
+        let vector = SparseBinVec::new(10, vec![0, 5, 7, 8]);
+        let json = serde_json::to_string(&vector).unwrap();
+        let expected = String::from("{\"positions\":[0,5,7,8],\"length\":10}");
+        assert_eq!(json, expected);
     }
 }

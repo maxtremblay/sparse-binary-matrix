@@ -29,6 +29,8 @@ pub use self::rows::Rows;
 mod transpose;
 use transpose::transpose;
 
+mod ser_de;
+
 /// A sparse binary matrix optimized for row operations.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SparseBinMat {
@@ -738,6 +740,11 @@ impl SparseBinMat {
             .filter(|x| !columns.contains(x))
             .collect();
         self.keep_only_columns(&to_keep)
+    }
+
+    /// Returns a json string for the matrix.
+    pub fn as_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
     }
 }
 
