@@ -388,6 +388,14 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
             .collect();
         Ok(SparseBinVec::new_unchecked(self.len(), positions))
     }
+
+    /// Returns a json string for the vector.
+    pub fn as_json(&self) -> Result<String, serde_json::Error>
+    where
+        T: Serialize,
+    {
+        serde_json::to_string(self)
+    }
 }
 
 impl<S, T> Add<&SparseBinVecBase<S>> for &SparseBinVecBase<T>
