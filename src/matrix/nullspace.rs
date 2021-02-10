@@ -9,8 +9,7 @@ pub(super) fn nullspace(matrix: &SparseBinMat) -> SparseBinMat {
         .unwrap()
         .vertical_concat_with(&SparseBinMat::identity(
             normal_form.number_of_columns() - normal_form.number_of_rows(),
-        ))
-        .unwrap();
+        ));
     permute_columns(&nullspace.transposed(), &inverse_permutation(&permutation))
 }
 

@@ -477,7 +477,7 @@ impl SparseBinMat {
     /// let concatened = left_matrix.vertical_concat_with(&right_matrix);
     /// let expected = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2], vec![0], vec![1], vec![2]]);
     ///
-    /// assert_eq!(concatened, Ok(expected));
+    /// assert_eq!(concatened, expected);
     /// ```
     pub fn vertical_concat_with(&self, other: &SparseBinMat) -> Self {
         concat_vertically(self, other)
