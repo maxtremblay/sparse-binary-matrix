@@ -38,7 +38,6 @@ fn pad_right_row(pad: usize, row: &[usize]) -> Vec<usize> {
     row.iter().map(|position| position + pad).collect()
 }
 
-// This assume that both matrix have the same number of columns.
 pub(super) fn concat_vertically(
     top_matrix: &SparseBinMat,
     bottom_matrix: &SparseBinMat,

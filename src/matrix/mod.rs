@@ -479,17 +479,8 @@ impl SparseBinMat {
     ///
     /// assert_eq!(concatened, Ok(expected));
     /// ```
-    pub fn vertical_concat_with(
-        &self,
-        other: &SparseBinMat,
-    ) -> Result<SparseBinMat, MatMatIncompatibleDimensions> {
-        if self.number_of_columns() != other.number_of_columns() {
-            return Err(MatMatIncompatibleDimensions::new(
-                self.dimension(),
-                other.dimension(),
-            ));
-        }
-        Ok(concat_vertically(self, other))
+    pub fn vertical_concat_with(&self, other: &SparseBinMat) -> Self {
+        concat_vertically(self, other)
     }
 
     /// Returns the dot product between a matrix and a vector or an error
