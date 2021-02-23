@@ -44,7 +44,6 @@ impl<'a> Iterator for NonTrivialElements<'a> {
     type Item = (usize, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
-        println!("({}, {})", self.row_index, self.column_index);
         if self.is_done() {
             None
         } else {
