@@ -17,6 +17,9 @@ use constructor_utils::initialize_from;
 mod gauss_jordan;
 use gauss_jordan::GaussJordan;
 
+mod kronecker;
+use kronecker::kronecker_product;
+
 mod non_trivial_elements;
 pub use self::non_trivial_elements::NonTrivialElements;
 
@@ -731,6 +734,24 @@ impl SparseBinMat {
             .filter(|x| !columns.contains(x))
             .collect();
         self.keep_only_columns(&to_keep)
+    }
+
+    /// Returns the Kronecker product of two matrices.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let left_matrix = SparseBinMat::new(2, vec![vec![1], vec![0]]);
+    /// let right_matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+    ///
+    /// let product = left_matrix.kron_with(&right_matrix);
+    /// let expected = SparseBinMat::new(6, vec![vec![3, 4], vec![4, 5], vec![0, 1], vec![1, 2]]);
+    ///
+    /// assert_eq!(product, expected);
+    /// ```
+    pub fn kron_with(&self, other: &Self) -> Self {
+        kronecker_product(self, other)
     }
 
     /// Returns a json string for the matrix.
