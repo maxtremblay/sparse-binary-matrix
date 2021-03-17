@@ -1,5 +1,5 @@
 use super::SparseBinSlice;
-use crate::BinaryNumber;
+use crate::BinNum;
 use std::cmp::Ordering;
 
 pub(super) struct BitwiseZipIter<'a> {
@@ -78,32 +78,32 @@ impl<'a> BitwiseZipIter<'a> {
 
 pub(super) struct PositionAndValues {
     pub(super) position: usize,
-    pub(super) first_row_value: BinaryNumber,
-    pub(super) second_row_value: BinaryNumber,
+    pub(super) first_row_value: BinNum,
+    pub(super) second_row_value: BinNum,
 }
 
 impl PositionAndValues {
     fn both_rows_at(position: usize) -> Self {
         Self {
             position,
-            first_row_value: 1,
-            second_row_value: 1,
+            first_row_value: 1.into(),
+            second_row_value: 1.into(),
         }
     }
 
     fn only_first_row_at(position: usize) -> Self {
         Self {
             position,
-            first_row_value: 1,
-            second_row_value: 0,
+            first_row_value: 1.into(),
+            second_row_value: 0.into(),
         }
     }
 
     fn only_second_row_at(position: usize) -> Self {
         Self {
             position,
-            first_row_value: 0,
-            second_row_value: 1,
+            first_row_value: 0.into(),
+            second_row_value: 1.into(),
         }
     }
 }

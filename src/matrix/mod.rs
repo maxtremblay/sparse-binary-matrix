@@ -2,7 +2,7 @@ use crate::error::{
     validate_positions, InvalidPositions, MatMatIncompatibleDimensions,
     MatVecIncompatibleDimensions,
 };
-use crate::BinaryNumber;
+use crate::BinNum;
 use crate::{SparseBinSlice, SparseBinVec, SparseBinVecBase};
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -300,11 +300,11 @@ impl SparseBinMat {
     /// let rows = vec![vec![0, 1], vec![1, 2]];
     /// let matrix = SparseBinMat::new(3, rows);
     ///
-    /// assert_eq!(matrix.get(0, 0), Some(1));
-    /// assert_eq!(matrix.get(1, 0), Some(0));
+    /// assert_eq!(matrix.get(0, 0), Some(1.into()));
+    /// assert_eq!(matrix.get(1, 0), Some(0.into()));
     /// assert_eq!(matrix.get(2, 0), None);
     /// ```
-    pub fn get(&self, row: usize, column: usize) -> Option<BinaryNumber> {
+    pub fn get(&self, row: usize, column: usize) -> Option<BinNum> {
         if column < self.number_of_columns() {
             self.row(row).and_then(|row| row.get(column))
         } else {
@@ -348,11 +348,8 @@ impl SparseBinMat {
     /// # Panic
     ///
     /// Panics if either the row or column is out of bound.
-    pub fn emplace_at(self, value: BinaryNumber, row: usize, column: usize) -> Self {
-        if !(value == 0 || value == 1) {
-            panic!("value must be 0 or 1")
-        }
-        match (self.get(row, column), value) {
+    pub fn emplace_at<B: Into<BinNum>>(self, value: B, row: usize, column: usize) -> Self {
+        match (self.get(row, column).map(|n| n.inner), value.into().inner) {
             (None, _) => panic!(
                 "position ({}, {}) is out of bound for {} matrix",
                 row,
@@ -380,7 +377,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.is_zero_at(2, 0), None);
     /// ```
     pub fn is_zero_at(&self, row: usize, column: usize) -> Option<bool> {
-        self.get(row, column).map(|value| value == 0)
+        self.get(row, column).map(|value| value == 0.into())
     }
 
     /// Returns true if the value at the given row and column is 1
@@ -398,7 +395,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.is_one_at(2, 0), None);
     /// ```
     pub fn is_one_at(&self, row: usize, column: usize) -> Option<bool> {
-        self.get(row, column).map(|value| value == 1)
+        self.get(row, column).map(|value| value == 1.into())
     }
 
     /// Returns a reference to the given row of the matrix
@@ -650,7 +647,7 @@ impl SparseBinMat {
         let positions = self
             .rows()
             .map(|row| row.dot_with(vector).unwrap())
-            .positions(|product| product == 1)
+            .positions(|product| product == 1.into())
             .collect();
         Ok(SparseBinVec::new_unchecked(
             self.number_of_rows(),
@@ -691,7 +688,7 @@ impl SparseBinMat {
             .map(|row| {
                 transposed
                     .rows()
-                    .positions(|column| row.dot_with(&column).unwrap() == 1)
+                    .positions(|column| row.dot_with(&column).unwrap() == 1.into())
                     .collect()
             })
             .collect();

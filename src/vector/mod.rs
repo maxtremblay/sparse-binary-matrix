@@ -1,5 +1,5 @@
 use crate::error::{validate_positions, IncompatibleDimensions, InvalidPositions};
-use crate::BinaryNumber;
+use crate::BinNum;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -160,17 +160,17 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// # use sparse_bin_mat::SparseBinVec;
     /// let vector = SparseBinVec::new(3, vec![0, 2]);
     ///
-    /// assert_eq!(vector.get(0), Some(1));
-    /// assert_eq!(vector.get(1), Some(0));
-    /// assert_eq!(vector.get(2), Some(1));
-    /// assert_eq!(vector.get(3), None);
+    /// assert!(vector.get(0).unwrap().is_one());
+    /// assert!(vector.get(1).unwrap().is_zero());
+    /// assert!(vector.get(2).unwrap().is_one());
+    /// assert!(vector.get(3).is_none());
     /// ```
-    pub fn get(&self, position: usize) -> Option<BinaryNumber> {
+    pub fn get(&self, position: usize) -> Option<BinNum> {
         if position < self.len() {
             if self.positions.contains(&position) {
-                Some(1)
+                Some(1.into())
             } else {
-                Some(0)
+                Some(0.into())
             }
         } else {
             None
@@ -192,7 +192,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// assert_eq!(vector.is_zero_at(3), None);
     /// ```
     pub fn is_zero_at(&self, position: usize) -> Option<bool> {
-        self.get(position).map(|value| value == 0)
+        self.get(position).map(|value| value == 0.into())
     }
 
     /// Returns true if the value at the given position is 1
@@ -210,7 +210,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// assert_eq!(vector.is_one_at(3), None);
     /// ```
     pub fn is_one_at(&self, position: usize) -> Option<bool> {
-        self.get(position).map(|value| value == 1)
+        self.get(position).map(|value| value == 1.into())
     }
 
     /// Returns an iterator over all positions where the value is 1.
@@ -341,18 +341,21 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     /// let second = SparseBinVec::new(4, vec![1, 2, 3]);
     /// let third = SparseBinVec::new(4, vec![0, 3]);
     ///
-    /// assert_eq!(first.dot_with(&second), Ok(0));
-    /// assert_eq!(first.dot_with(&third), Ok((1)));
+    /// assert_eq!(first.dot_with(&second), Ok(0.into()));
+    /// assert_eq!(first.dot_with(&third), Ok((1.into())));
     /// ```
     pub fn dot_with<S: Deref<Target = [usize]>>(
         &self,
         other: &SparseBinVecBase<S>,
-    ) -> Result<BinaryNumber, IncompatibleDimensions<usize, usize>> {
+    ) -> Result<BinNum, IncompatibleDimensions<usize, usize>> {
         if self.len() != other.len() {
             return Err(IncompatibleDimensions::new(self.len(), other.len()));
         }
-        Ok(BitwiseZipIter::new(self.as_view(), other.as_view())
-            .fold(0, |sum, x| sum ^ x.first_row_value * x.second_row_value))
+        Ok(
+            BitwiseZipIter::new(self.as_view(), other.as_view()).fold(0.into(), |sum, x| {
+                sum + x.first_row_value * x.second_row_value
+            }),
+        )
     }
 
     /// Returns the bitwise xor of two vectors or an
@@ -379,7 +382,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         }
         let positions = BitwiseZipIter::new(self.as_view(), other.as_view())
             .filter_map(|x| {
-                if x.first_row_value ^ x.second_row_value == 1 {
+                if x.first_row_value + x.second_row_value == 1.into() {
                     Some(x.position)
                 } else {
                     None
@@ -419,7 +422,7 @@ where
     S: Deref<Target = [usize]>,
     T: Deref<Target = [usize]>,
 {
-    type Output = BinaryNumber;
+    type Output = BinNum;
 
     fn mul(self, other: &SparseBinVecBase<S>) -> Self::Output {
         self.dot_with(other).expect(&format!(
