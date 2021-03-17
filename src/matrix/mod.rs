@@ -96,12 +96,32 @@ impl SparseBinMat {
 
     // Assumes rows are sorted, all unique and inbound.
     pub(crate) fn new_unchecked(number_of_columns: usize, rows: Vec<Vec<usize>>) -> Self {
-        let (row_ranges, column_indices) = initialize_from(rows);
+        let (row_ranges, column_indices) = initialize_from(rows, None);
         Self {
             row_ranges,
             column_indices,
             number_of_columns,
         }
+    }
+
+    pub fn with_capacity(number_of_columns: usize, capacity: usize, rows: Vec<Vec<usize>>) -> Self {
+        Self::try_with_capacity(number_of_columns, capacity, rows).expect("[Error]")
+    }
+
+    pub fn try_with_capacity(
+        number_of_columns: usize,
+        capacity: usize,
+        rows: Vec<Vec<usize>>,
+    ) -> Result<Self, InvalidPositions> {
+        for row in rows.iter() {
+            validate_positions(number_of_columns, row)?;
+        }
+        let (row_ranges, column_indices) = initialize_from(rows, Some(capacity));
+        Ok(Self {
+            row_ranges,
+            column_indices,
+            number_of_columns,
+        })
     }
 
     /// Creates an identity matrix of the given length.
