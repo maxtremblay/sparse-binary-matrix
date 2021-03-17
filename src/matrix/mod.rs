@@ -17,6 +17,9 @@ use constructor_utils::initialize_from;
 mod gauss_jordan;
 use gauss_jordan::GaussJordan;
 
+mod inplace_operations;
+use inplace_operations::{insert_one_at, remove_zero_at};
+
 mod kronecker;
 use kronecker::kronecker_product;
 
@@ -251,6 +254,23 @@ impl SparseBinMat {
             self.row(row).and_then(|row| row.get(column))
         } else {
             None
+        }
+    }
+
+    pub fn emplace_at(self, value: BinaryNumber, row: usize, column: usize) -> Self {
+        if !(value == 0 || value == 1) {
+            panic!("value must be 0 or 1")
+        }
+        match (self.get(row, column), value) {
+            (None, _) => panic!(
+                "position ({}, {}) is out of bound for {} matrix",
+                row,
+                column,
+                dimension_to_string(self.dimension())
+            ),
+            (Some(0), 1) => insert_one_at(self, row, column),
+            (Some(1), 0) => remove_zero_at(self, row, column),
+            _ => self,
         }
     }
 
