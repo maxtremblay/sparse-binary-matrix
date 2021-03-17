@@ -24,11 +24,11 @@
 //! to transpose the matrix if you want to perform column operations.
 //!
 //! ```
-//! # use sparse_bin_mat::SparseBinMat;
+//! # use sparse_bin_mat::{SparseBinMat, BinNum};
 //! let matrix = SparseBinMat::new(5, vec![vec![0, 2, 4], vec![1, 3], vec![2]]);
 //! assert_eq!(matrix.row(1).unwrap().as_slice(), [1, 3].as_ref());
-//! assert_eq!(matrix.get(0, 0), Some(1));
-//! assert_eq!(matrix.get(0, 1), Some(0));
+//! assert_eq!(matrix.get(0, 0), Some(BinNum::new(1)));
+//! assert_eq!(matrix.get(0, 1), Some(BinNum::new(0)));
 //! // The element (0, 7) is out of bound for a 3 x 5 matrix.
 //! assert_eq!(matrix.get(0, 7), None);
 //! ```
@@ -59,7 +59,8 @@
 //! Operations are implemented as I need them,
 //! feel welcome to raise an issue if you need a new functionnality.
 
-type BinaryNumber = u8;
+mod binary_number;
+pub use binary_number::BinNum;
 
 pub mod error;
 

@@ -2,7 +2,7 @@ use crate::error::{
     validate_positions, InvalidPositions, MatMatIncompatibleDimensions,
     MatVecIncompatibleDimensions,
 };
-use crate::BinaryNumber;
+use crate::BinNum;
 use crate::{SparseBinSlice, SparseBinVec, SparseBinVecBase};
 use itertools::Itertools;
 use std::collections::HashMap;
@@ -16,6 +16,9 @@ use constructor_utils::initialize_from;
 
 mod gauss_jordan;
 use gauss_jordan::GaussJordan;
+
+mod inplace_operations;
+use inplace_operations::{insert_one_at, remove_one_at};
 
 mod kronecker;
 use kronecker::kronecker_product;
@@ -47,7 +50,6 @@ impl SparseBinMat {
     /// and list of rows .
     ///
     /// A row is a list of the positions where the elements have value 1.
-    /// All rows are sorted during insertion.
     ///
     /// # Example
     ///
@@ -96,12 +98,82 @@ impl SparseBinMat {
 
     // Assumes rows are sorted, all unique and inbound.
     pub(crate) fn new_unchecked(number_of_columns: usize, rows: Vec<Vec<usize>>) -> Self {
-        let (row_ranges, column_indices) = initialize_from(rows);
+        let (row_ranges, column_indices) = initialize_from(rows, None);
         Self {
             row_ranges,
             column_indices,
             number_of_columns,
         }
+    }
+
+    /// Creates a new matrix with the given number of columns,
+    /// capacity and list of rows.
+    ///
+    /// A row is a list of the positions where the elements have value 1.
+    ///
+    /// The capacity is used to pre-allocate enough memory to store that
+    /// amount of 1s in the matrix.
+    /// This is mostly useful in combination with inplace operations modifying
+    /// the number of 1s in the matrix.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::with_capacity(4, 7, vec![vec![0, 1, 2], vec![0, 2, 3]]);
+    ///
+    /// assert_eq!(matrix.number_of_rows(), 2);
+    /// assert_eq!(matrix.number_of_columns(), 4);
+    /// assert_eq!(matrix.number_of_elements(), 8);
+    /// assert_eq!(matrix.capacity(), 7);
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// Panics if a position in a row is greater or equal the number of columns,
+    /// a row is unsorted or a row contains duplicate.
+    pub fn with_capacity(number_of_columns: usize, capacity: usize, rows: Vec<Vec<usize>>) -> Self {
+        Self::try_with_capacity(number_of_columns, capacity, rows).expect("[Error]")
+    }
+
+    /// Creates a new matrix with the given number of columns,
+    /// capacity and list of rows
+    /// Returns an error if a position in a
+    /// row is greater or equal the number of columns, a row is unsorted
+    /// or a row contains duplicate.
+    ///
+    /// A row is a list of the positions where the elements have value 1.
+    /// All rows are sorted during insertion.
+    ///
+    /// The capacity is used to pre-allocate enough memory to store that
+    /// amount of 1s in the matrix.
+    /// This is mostly useful in combination with inplace operations modifying
+    /// the number of 1s in the matrix.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(4, vec![vec![0, 1, 2], vec![0, 2, 3]]);
+    /// let try_matrix = SparseBinMat::try_with_capacity(4, 7, vec![vec![0, 1 ,2], vec![0, 2, 3]]);
+    ///
+    /// assert_eq!(try_matrix, Ok(matrix));
+    /// assert_eq!(try_matrix.unwrap().capacity(), 7);
+    /// ```
+    pub fn try_with_capacity(
+        number_of_columns: usize,
+        capacity: usize,
+        rows: Vec<Vec<usize>>,
+    ) -> Result<Self, InvalidPositions> {
+        for row in rows.iter() {
+            validate_positions(number_of_columns, row)?;
+        }
+        let (row_ranges, column_indices) = initialize_from(rows, Some(capacity));
+        Ok(Self {
+            row_ranges,
+            column_indices,
+            number_of_columns,
+        })
     }
 
     /// Creates an identity matrix of the given length.
@@ -169,6 +241,12 @@ impl SparseBinMat {
         }
     }
 
+    /// Returns the maximum number of 1s the matrix can
+    /// store before reallocating.
+    pub fn capacity(&self) -> usize {
+        self.column_indices.capacity()
+    }
+
     /// Returns the number of columns in the matrix.
     pub fn number_of_columns(&self) -> usize {
         self.number_of_columns
@@ -222,15 +300,65 @@ impl SparseBinMat {
     /// let rows = vec![vec![0, 1], vec![1, 2]];
     /// let matrix = SparseBinMat::new(3, rows);
     ///
-    /// assert_eq!(matrix.get(0, 0), Some(1));
-    /// assert_eq!(matrix.get(1, 0), Some(0));
+    /// assert_eq!(matrix.get(0, 0), Some(1.into()));
+    /// assert_eq!(matrix.get(1, 0), Some(0.into()));
     /// assert_eq!(matrix.get(2, 0), None);
     /// ```
-    pub fn get(&self, row: usize, column: usize) -> Option<BinaryNumber> {
+    pub fn get(&self, row: usize, column: usize) -> Option<BinNum> {
         if column < self.number_of_columns() {
             self.row(row).and_then(|row| row.get(column))
         } else {
             None
+        }
+    }
+
+    /// Inserts the given value at the given row and column.
+    ///
+    /// This operation is perform in place. That is, it take ownership of the matrix
+    /// and returns an updated matrix using the same memory.
+    ///
+    /// To avoid having to reallocate new memory,
+    /// it is reccommended to construct the matrix using
+    /// [`with_capacity`](SparseBinMat::with_capacity)
+    /// or
+    /// [`try_with_capacity`](SparseBinMat::try_with_capacity).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    ///
+    /// let mut matrix = SparseBinMat::with_capacity(3, 4, vec![vec![0], vec![1, 2]]);
+    ///
+    /// // This doesn't change the matrix
+    /// matrix = matrix.emplace_at(1, 0, 0);
+    /// assert_eq!(matrix.number_of_ones(), 3);
+    ///
+    /// // Add a 1 in the first row.
+    /// matrix = matrix.emplace_at(1, 0, 2);
+    /// let expected = SparseBinMat::new(3, vec![vec![0, 2], vec![1, 2]]);
+    /// assert_eq!(matrix, expected);
+    ///
+    /// // Remove a 1 in the second row.
+    /// matrix = matrix.emplace_at(0, 1, 1);
+    /// let expected = SparseBinMat::new(3, vec![vec![0, 2], vec![2]]);
+    /// assert_eq!(matrix, expected);
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// Panics if either the row or column is out of bound.
+    pub fn emplace_at<B: Into<BinNum>>(self, value: B, row: usize, column: usize) -> Self {
+        match (self.get(row, column).map(|n| n.inner), value.into().inner) {
+            (None, _) => panic!(
+                "position ({}, {}) is out of bound for {} matrix",
+                row,
+                column,
+                dimension_to_string(self.dimension())
+            ),
+            (Some(0), 1) => insert_one_at(self, row, column),
+            (Some(1), 0) => remove_one_at(self, row, column),
+            _ => self,
         }
     }
 
@@ -249,7 +377,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.is_zero_at(2, 0), None);
     /// ```
     pub fn is_zero_at(&self, row: usize, column: usize) -> Option<bool> {
-        self.get(row, column).map(|value| value == 0)
+        self.get(row, column).map(|value| value == 0.into())
     }
 
     /// Returns true if the value at the given row and column is 1
@@ -267,7 +395,7 @@ impl SparseBinMat {
     /// assert_eq!(matrix.is_one_at(2, 0), None);
     /// ```
     pub fn is_one_at(&self, row: usize, column: usize) -> Option<bool> {
-        self.get(row, column).map(|value| value == 1)
+        self.get(row, column).map(|value| value == 1.into())
     }
 
     /// Returns a reference to the given row of the matrix
@@ -519,7 +647,7 @@ impl SparseBinMat {
         let positions = self
             .rows()
             .map(|row| row.dot_with(vector).unwrap())
-            .positions(|product| product == 1)
+            .positions(|product| product == 1.into())
             .collect();
         Ok(SparseBinVec::new_unchecked(
             self.number_of_rows(),
@@ -560,7 +688,7 @@ impl SparseBinMat {
             .map(|row| {
                 transposed
                     .rows()
-                    .positions(|column| row.dot_with(&column).unwrap() == 1)
+                    .positions(|column| row.dot_with(&column).unwrap() == 1.into())
                     .collect()
             })
             .collect();

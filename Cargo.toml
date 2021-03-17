@@ -1,6 +1,6 @@
 [package]
 name = "sparse-bin-mat"
-version = "0.5.2"
+version = "0.6.0"
 authors = ["maxtremblay <maxtremblay>"]
 edition = "2018"
 description = "A sparse implementation of a binary matrix optimized for row operations"
@@ -14,7 +14,7 @@ categories = ["data-structures", "algorithms"]
 [dependencies]
 is_sorted = "0.1.1"
 itertools = "0.9.0"
-serde = {version="1.0.123", features=["derive"]}
+serde = { version = "1.0.123", features = ["derive"] }
 serde_json = "1.0.62"
 
 [dev-dependencies]
