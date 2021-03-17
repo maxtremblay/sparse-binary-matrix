@@ -18,7 +18,7 @@ mod gauss_jordan;
 use gauss_jordan::GaussJordan;
 
 mod inplace_operations;
-use inplace_operations::{insert_one_at, remove_zero_at};
+use inplace_operations::{insert_one_at, remove_one_at};
 
 mod kronecker;
 use kronecker::kronecker_product;
@@ -50,7 +50,6 @@ impl SparseBinMat {
     /// and list of rows .
     ///
     /// A row is a list of the positions where the elements have value 1.
-    /// All rows are sorted during insertion.
     ///
     /// # Example
     ///
@@ -107,10 +106,60 @@ impl SparseBinMat {
         }
     }
 
+    /// Creates a new matrix with the given number of columns,
+    /// capacity and list of rows.
+    ///
+    /// A row is a list of the positions where the elements have value 1.
+    ///
+    /// The capacity is used to pre-allocate enough memory to store that
+    /// amount of 1s in the matrix.
+    /// This is mostly useful in combination with inplace operations modifying
+    /// the number of 1s in the matrix.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::with_capacity(4, 7, vec![vec![0, 1, 2], vec![0, 2, 3]]);
+    ///
+    /// assert_eq!(matrix.number_of_rows(), 2);
+    /// assert_eq!(matrix.number_of_columns(), 4);
+    /// assert_eq!(matrix.number_of_elements(), 8);
+    /// assert_eq!(matrix.capacity(), 7);
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// Panics if a position in a row is greater or equal the number of columns,
+    /// a row is unsorted or a row contains duplicate.
     pub fn with_capacity(number_of_columns: usize, capacity: usize, rows: Vec<Vec<usize>>) -> Self {
         Self::try_with_capacity(number_of_columns, capacity, rows).expect("[Error]")
     }
 
+    /// Creates a new matrix with the given number of columns,
+    /// capacity and list of rows
+    /// Returns an error if a position in a
+    /// row is greater or equal the number of columns, a row is unsorted
+    /// or a row contains duplicate.
+    ///
+    /// A row is a list of the positions where the elements have value 1.
+    /// All rows are sorted during insertion.
+    ///
+    /// The capacity is used to pre-allocate enough memory to store that
+    /// amount of 1s in the matrix.
+    /// This is mostly useful in combination with inplace operations modifying
+    /// the number of 1s in the matrix.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(4, vec![vec![0, 1, 2], vec![0, 2, 3]]);
+    /// let try_matrix = SparseBinMat::try_with_capacity(4, 7, vec![vec![0, 1 ,2], vec![0, 2, 3]]);
+    ///
+    /// assert_eq!(try_matrix, Ok(matrix));
+    /// assert_eq!(try_matrix.unwrap().capacity(), 7);
+    /// ```
     pub fn try_with_capacity(
         number_of_columns: usize,
         capacity: usize,
@@ -192,6 +241,12 @@ impl SparseBinMat {
         }
     }
 
+    /// Returns the maximum number of 1s the matrix can
+    /// store before reallocating.
+    pub fn capacity(&self) -> usize {
+        self.column_indices.capacity()
+    }
+
     /// Returns the number of columns in the matrix.
     pub fn number_of_columns(&self) -> usize {
         self.number_of_columns
@@ -257,6 +312,42 @@ impl SparseBinMat {
         }
     }
 
+    /// Inserts the given value at the given row and column.
+    ///
+    /// This operation is perform in place. That is, it take ownership of the matrix
+    /// and returns an updated matrix using the same memory.
+    ///
+    /// To avoid having to reallocate new memory,
+    /// it is reccommended to construct the matrix using
+    /// [`with_capacity`](SparseBinMat::with_capacity)
+    /// or
+    /// [`try_with_capacity`](SparseBinMat::try_with_capacity).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    ///
+    /// let mut matrix = SparseBinMat::with_capacity(3, 4, vec![vec![0], vec![1, 2]]);
+    ///
+    /// // This doesn't change the matrix
+    /// matrix = matrix.emplace_at(1, 0, 0);
+    /// assert_eq!(matrix.number_of_ones(), 3);
+    ///
+    /// // Add a 1 in the first row.
+    /// matrix = matrix.emplace_at(1, 0, 2);
+    /// let expected = SparseBinMat::new(3, vec![vec![0, 2], vec![1, 2]]);
+    /// assert_eq!(matrix, expected);
+    ///
+    /// // Remove a 1 in the second row.
+    /// matrix = matrix.emplace_at(0, 1, 1);
+    /// let expected = SparseBinMat::new(3, vec![vec![0, 2], vec![2]]);
+    /// assert_eq!(matrix, expected);
+    /// ```
+    ///
+    /// # Panic
+    ///
+    /// Panics if either the row or column is out of bound.
     pub fn emplace_at(self, value: BinaryNumber, row: usize, column: usize) -> Self {
         if !(value == 0 || value == 1) {
             panic!("value must be 0 or 1")
@@ -269,7 +360,7 @@ impl SparseBinMat {
                 dimension_to_string(self.dimension())
             ),
             (Some(0), 1) => insert_one_at(self, row, column),
-            (Some(1), 0) => remove_zero_at(self, row, column),
+            (Some(1), 0) => remove_one_at(self, row, column),
             _ => self,
         }
     }
