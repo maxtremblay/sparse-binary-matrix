@@ -234,6 +234,28 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
         }
     }
 
+    /// Returns an iterator over all value in the vector.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::{SparseBinVec, BinNum};
+    /// let vector = SparseBinVec::new(4, vec![0, 2]);
+    /// let mut iter = vector.iter_dense();
+    ///
+    /// assert_eq!(iter.next(), Some(BinNum::one()));
+    /// assert_eq!(iter.next(), Some(BinNum::zero()));
+    /// assert_eq!(iter.next(), Some(BinNum::one()));
+    /// assert_eq!(iter.next(), Some(BinNum::zero()));
+    /// assert_eq!(iter.next(), None);
+    /// ```
+    pub fn iter_dense<'a>(&'a self) -> IterDense<'a, T> {
+        IterDense {
+            vec: self,
+            index: 0,
+        }
+    }
+
     /// Returns the concatenation of two vectors.
     ///
     /// # Example
@@ -455,6 +477,27 @@ impl<'vec> Iterator for NonTrivialPositions<'vec> {
             self.index += 1;
             *position
         })
+    }
+}
+
+/// An iterator over all positions of
+/// a sparse binary vector.
+#[derive(Debug, Clone)]
+pub struct IterDense<'vec, T> {
+    vec: &'vec SparseBinVecBase<T>,
+    index: usize,
+}
+
+impl<'vec, T> Iterator for IterDense<'vec, T>
+where
+    T: Deref<Target = [usize]>,
+{
+    type Item = BinNum;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let value = self.vec.get(self.index);
+        self.index += 1;
+        value
     }
 }
 
