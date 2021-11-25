@@ -119,4 +119,11 @@ mod test {
         );
         assert_eq!(permute_columns(&matrix, &permutation), expected);
     }
+
+    #[test]
+    fn matrix_with_zero_rows() {
+        let matrix = SparseBinMat::new(4, vec![]);
+        let expected = SparseBinMat::new(4, vec![vec![0], vec![1], vec![2], vec![3]]);
+        assert_eq!(nullspace(&matrix), expected);
+    }
 }

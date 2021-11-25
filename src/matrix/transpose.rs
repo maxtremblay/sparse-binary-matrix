@@ -2,7 +2,8 @@ use super::SparseBinMat;
 
 pub(super) fn transpose(matrix: &SparseBinMat) -> SparseBinMat {
     if matrix.is_empty() {
-        return SparseBinMat::empty();
+        println!("{}",  matrix.number_of_columns());
+        return SparseBinMat::new(0, vec![vec![]; matrix.number_of_columns()]);
     }
     let mut transposed = vec![Vec::new(); matrix.number_of_columns()];
     for (row, positions) in matrix.rows().enumerate() {
@@ -24,7 +25,7 @@ mod test {
     #[test]
     fn transposition_of_empty_matrix() {
         let transposed = SparseBinMat::empty().transposed();
-        assert_eq!(transposed, SparseBinMat::empty());
+        assert!(transposed.is_empty());
     }
 
     #[test]
@@ -52,5 +53,12 @@ mod test {
         );
 
         assert_eq!(matrix.transposed(), transposed);
+    }
+
+    #[test]
+    fn transpose_matrix_without_rows() {
+        let matrix = SparseBinMat::new(5, vec![]);
+        let expected = SparseBinMat::new(0, vec![vec![]; 5]);
+        assert_eq!(matrix.transposed(), expected)
     }
 }
