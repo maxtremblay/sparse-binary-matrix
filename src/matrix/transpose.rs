@@ -2,7 +2,6 @@ use super::SparseBinMat;
 
 pub(super) fn transpose(matrix: &SparseBinMat) -> SparseBinMat {
     if matrix.is_empty() {
-        println!("{}",  matrix.number_of_columns());
         return SparseBinMat::new(0, vec![vec![]; matrix.number_of_columns()]);
     }
     let mut transposed = vec![Vec::new(); matrix.number_of_columns()];

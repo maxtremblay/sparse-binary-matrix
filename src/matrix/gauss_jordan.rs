@@ -2,7 +2,6 @@ use super::SparseBinMat;
 use crate::SparseBinSlice;
 
 pub(super) struct GaussJordan {
-    number_of_rows: usize,
     number_of_columns: usize,
     active_column: usize,
     rows: Vec<Vec<usize>>,
@@ -11,7 +10,6 @@ pub(super) struct GaussJordan {
 impl GaussJordan {
     pub(super) fn new(matrix: &SparseBinMat) -> Self {
         Self {
-            number_of_rows: matrix.number_of_rows(),
             number_of_columns: matrix.number_of_columns(),
             active_column: 0,
             rows: matrix
@@ -26,11 +24,9 @@ impl GaussJordan {
     }
 
     pub(super) fn echelon_form(self) -> SparseBinMat {
-        let number_of_rows = self.number_of_rows;
         let number_of_columns = self.number_of_columns;
         let mut rows = self.unsorted_echeloned_rows();
         rows.sort_by_key(|row| row[0]);
-        rows.extend_from_slice(&vec![Vec::new(); number_of_rows - rows.len()]);
         SparseBinMat::new(number_of_columns, rows)
     }
 
@@ -157,8 +153,6 @@ mod test {
                 vec![1, 2, 3],
                 vec![3, 4, 6],
                 vec![5, 6],
-                vec![],
-                vec![],
             ],
         );
         assert_eq!(echelon_form, expected);

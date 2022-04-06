@@ -236,7 +236,7 @@ impl SparseBinMat {
     pub fn empty() -> Self {
         Self {
             column_indices: Vec::new(),
-            row_ranges: Vec::new(),
+            row_ranges: Vec::new(), 
             number_of_columns: 0,
         }
     }
@@ -288,6 +288,28 @@ impl SparseBinMat {
     /// Returns true if the all elements of the matrix are 0.
     pub fn is_zero(&self) -> bool {
         self.number_of_ones() == 0
+    }
+
+    /// Inserts a new row at the end the matrix.
+    ///
+    /// This update the matrix inplace.
+    ///
+    /// # Example 
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let rows = vec![vec![0, 1], vec![1, 2]];
+    /// let mut matrix = SparseBinMat::new(3, rows);
+    /// matrix.push_row(&[0, 2]);
+    ///
+    /// let rows = vec![vec![0, 1], vec![1, 2], vec![0, 2]];
+    /// let expected = SparseBinMat::new(3, rows);
+    ///
+    /// assert_eq!(matrix, expected);
+    /// ```
+    pub fn push_row(&mut self, row: &[usize]) {
+        self.row_ranges.push(self.number_of_ones() + row.len());
+        self.column_indices.extend_from_slice(row);
     }
 
     /// Returns the value at the given row and column
@@ -536,7 +558,7 @@ impl SparseBinMat {
     /// ```
     /// # use sparse_bin_mat::SparseBinMat;
     /// let matrix = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![0], vec![1, 2], vec![0, 2]]);
-    /// let expected = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![1], vec![2], vec![]]);
+    /// let expected = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![1], vec![2]]);
     /// assert_eq!(matrix.echelon_form(), expected);
     /// ```
     pub fn echelon_form(&self) -> Self {
@@ -559,34 +581,38 @@ impl SparseBinMat {
     /// # use sparse_bin_mat::SparseBinMat;
     /// let matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
     ///
-    /// let rhs = SparseBinMat::new(3, vec![vec![0, 2]]);
-    /// let expected = SparseBinMat::new(2, vec![vec![0, 1]]);
+    /// let rhs = SparseBinMat::new(3, vec![vec![0, 1], vec![0, 2]]);
+    /// let expected = SparseBinMat::new(2, vec![vec![0], vec![0, 1]]);
     /// assert_eq!(matrix.solve(&rhs), Some(expected));
     ///
     /// let rhs = SparseBinMat::new(3, vec![vec![0]]);
     /// assert!(matrix.solve(&rhs).is_none());
     /// ```
     pub fn solve(&self, rhs: &SparseBinMat) -> Option<Self> {
-        // Compute combined echelon form and transpose for easier iteration.
-        let matrix = self
-            .vertical_concat_with(&rhs)
-            .transposed()
-            .echelon_form()
-            .transposed();
-        // lhs are the rows corresponding to self.
-        let lhs = matrix
-            .keep_only_rows(&(0..self.number_of_rows()).collect_vec())
-            .unwrap();
-        // We iterate throught the remaining rows (corresponding to rhs).
-        matrix
-            .rows()
-            .skip(self.number_of_rows())
+        let (lhs, rhs) = self.prepare_matrices_to_solve(rhs);
+        rhs.rows()
             .map(|row| lhs.solve_vec(row))
             .fold_options(Vec::new(), |mut acc, row| {
                 acc.push(row);
                 acc
             })
             .map(|rows| Self::new(self.number_of_rows(), rows))
+    }
+
+    fn prepare_matrices_to_solve(&self, rhs: &SparseBinMat) -> (Self, Self) {
+        // Compute combined echelon form and transpose for easier iteration.
+        let mut matrix = self.vertical_concat_with(&rhs).transposed().echelon_form();
+        if let Some(first) = matrix.row(matrix.number_of_rows() - 1).and_then(|row| {
+            row.as_slice()
+                .first()
+                .filter(|first| **first < self.number_of_rows() - 1)
+                .cloned()
+        }) {
+            for _ in 0..(self.number_of_rows() - first - 1) {
+                matrix.push_row(&[]);
+            }
+        }
+        matrix.transposed().split_rows(self.number_of_rows())
     }
 
     /// Solves self * x = vec and returns x.
@@ -888,6 +914,104 @@ impl SparseBinMat {
         self.keep_only_rows(&to_keep)
     }
 
+    /// Returns two matrices where the first one contains
+    /// all rows until split and the second one contains all
+    /// rows starting from split.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(5, vec![
+    ///     vec![0, 1, 2],
+    ///     vec![2, 3, 4],
+    ///     vec![0, 2, 4],
+    ///     vec![1, 3],
+    ///     vec![0, 1, 3],
+    /// ]);
+    /// let (top, bottom) = matrix.split_rows(2);
+    ///
+    /// let expected_top = SparseBinMat::new(5, vec![
+    ///     vec![0, 1, 2],
+    ///     vec![2, 3, 4],
+    /// ]);
+    /// assert_eq!(top, expected_top);
+    ///
+    /// let expected_bottom = SparseBinMat::new(5, vec![
+    ///     vec![0, 2, 4],
+    ///     vec![1, 3],
+    ///     vec![0, 1, 3],
+    /// ]);
+    /// assert_eq!(bottom, expected_bottom);
+    /// ```
+    pub fn split_rows(&self, split: usize) -> (Self, Self) {
+        (self.split_rows_top(split), self.split_rows_bottom(split))
+    }
+
+    /// Returns a matrix that contains all rows until split.
+    /// 
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(5, vec![
+    ///     vec![0, 1, 2],
+    ///     vec![2, 3, 4],
+    ///     vec![0, 2, 4],
+    ///     vec![1, 3],
+    ///     vec![0, 1, 3],
+    /// ]);
+    /// let top = matrix.split_rows_top(1);
+    ///
+    /// let expected_top = SparseBinMat::new(5, vec![
+    ///     vec![0, 1, 2],
+    /// ]);
+    /// assert_eq!(top, expected_top);
+    /// ```
+    pub fn split_rows_top(&self, split: usize) -> Self {
+        let row_ranges = self.row_ranges[..=split].to_vec();
+        let column_indices =
+            self.column_indices[..row_ranges.last().cloned().unwrap_or(0)].to_vec();
+        Self {
+            row_ranges,
+            column_indices,
+            number_of_columns: self.number_of_columns,
+        }
+    }
+
+    /// Returns a matrix that contains all rows starting from split.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(5, vec![
+    ///     vec![0, 1, 2],
+    ///     vec![2, 3, 4],
+    ///     vec![0, 2, 4],
+    ///     vec![1, 3],
+    ///     vec![0, 1, 3],
+    /// ]);
+    /// let bottom = matrix.split_rows_bottom(3);
+    ///
+    /// let expected_bottom = SparseBinMat::new(5, vec![
+    ///     vec![1, 3],
+    ///     vec![0, 1, 3],
+    /// ]);
+    /// assert_eq!(bottom, expected_bottom);
+    /// ```
+    pub fn split_rows_bottom(&self, split: usize) -> Self {
+        let row_ranges = self.row_ranges[split..].to_vec();
+        let column_indices =
+            self.column_indices[row_ranges.first().cloned().unwrap_or(0)..].to_vec();
+        Self {
+            row_ranges: row_ranges.iter().map(|r| r - row_ranges[0]).collect(),
+            column_indices,
+            number_of_columns: self.number_of_columns,
+        }
+    }
+
     /// Returns a new matrix keeping only the given columns or an error
     /// if columns are out of bound, unsorted or not unique.
     ///
@@ -1120,7 +1244,7 @@ mod test {
         );
         let b = SparseBinMat::new(6, vec![vec![0], vec![1, 5]]);
         let solution = a.solve(&b).unwrap();
-        let expected = SparseBinMat::new(9, vec![vec![0, 1, 2, 4, 5], vec![1, 4, 7]]);
+        let expected = SparseBinMat::new(9, vec![vec![0, 1, 2, 4, 5], vec![1, 4, 6]]);
         assert_eq!(solution, expected);
     }
 
