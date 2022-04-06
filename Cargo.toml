@@ -1,6 +1,6 @@
 [package]
 name = "sparse-bin-mat"
-version = "0.6.2"
+version = "0.7.0"
 authors = ["maxtremblay <maxtremblay>"]
 edition = "2021"
 description = "A sparse implementation of a binary matrix optimized for row operations"
