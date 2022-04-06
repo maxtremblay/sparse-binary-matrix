@@ -27,7 +27,7 @@ mod non_trivial_elements;
 pub use self::non_trivial_elements::NonTrivialElements;
 
 mod nullspace;
-use nullspace::nullspace;
+use nullspace::{normal_form_from_echelon_form, nullspace};
 
 mod rows;
 pub use self::rows::Rows;
@@ -527,21 +527,95 @@ impl SparseBinMat {
 
     /// Returns an echeloned version of the matrix.
     ///
-    /// A matrix in echelon form as the property that no
-    /// rows any given row have a 1 in the first non trivial
-    /// position of that row. Also, all rows are linearly
-    /// independent.
+    /// A matrix in echelon form as the property that
+    /// all rows have a 1 at their first non trivial
+    /// position. Also, all rows are linearly independent.
     ///
     /// # Example
     ///
     /// ```
     /// # use sparse_bin_mat::SparseBinMat;
     /// let matrix = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![0], vec![1, 2], vec![0, 2]]);
-    /// let expected = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![1], vec![2]]);
+    /// let expected = SparseBinMat::new(3, vec![vec![0, 1, 2], vec![1], vec![2], vec![]]);
     /// assert_eq!(matrix.echelon_form(), expected);
     /// ```
     pub fn echelon_form(&self) -> Self {
         GaussJordan::new(self).echelon_form()
+    }
+
+    /// Solves a linear system of equations define from this matrix.
+    ///
+    /// One solution is provided for each column of rhs.
+    /// That is, for each row r of rhs, this solves
+    /// the system A*x = r and returns x into a matrix where the row i
+    /// is the solution for the column i of rhs.
+    ///
+    /// Returns None if at least one equation is not solvable and returns
+    /// an arbitrary solution if it is not unique.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use sparse_bin_mat::SparseBinMat;
+    /// let matrix = SparseBinMat::new(3, vec![vec![0, 1], vec![1, 2]]);
+    ///
+    /// let rhs = SparseBinMat::new(3, vec![vec![0, 2]]);
+    /// let expected = SparseBinMat::new(2, vec![vec![0, 1]]);
+    /// assert_eq!(matrix.solve(&rhs), Some(expected));
+    ///
+    /// let rhs = SparseBinMat::new(3, vec![vec![0]]);
+    /// assert!(matrix.solve(&rhs).is_none());
+    /// ```
+    pub fn solve(&self, rhs: &SparseBinMat) -> Option<Self> {
+        // Compute combined echelon form and transpose for easier iteration.
+        let matrix = self
+            .vertical_concat_with(&rhs)
+            .transposed()
+            .echelon_form()
+            .transposed();
+        // lhs are the rows corresponding to self.
+        let lhs = matrix
+            .keep_only_rows(&(0..self.number_of_rows()).collect_vec())
+            .unwrap();
+        // We iterate throught the remaining rows (corresponding to rhs).
+        matrix
+            .rows()
+            .skip(self.number_of_rows())
+            .map(|row| lhs.solve_vec(row))
+            .fold_options(Vec::new(), |mut acc, row| {
+                acc.push(row);
+                acc
+            })
+            .map(|rows| Self::new(self.number_of_rows(), rows))
+    }
+
+    /// Solves self * x = vec and returns x.
+    fn solve_vec(&self, vec: SparseBinSlice) -> Option<Vec<usize>> {
+        let mut vec = vec.to_vec();
+        let mut solution = Vec::new();
+        let mut col_idx = self.number_of_rows();
+        for vec_idx in (0..vec.len()).rev() {
+            if col_idx == 0 {
+                return None;
+            }
+            col_idx -= 1;
+            if vec.is_one_at(vec_idx).unwrap() {
+                while self
+                    .row(col_idx)
+                    .and_then(|row| row.is_zero_at(vec_idx))
+                    .unwrap_or(false)
+                {
+                    if col_idx == 0 {
+                        return None;
+                    }
+                    col_idx -= 1;
+                }
+                vec = &vec + &self.row(col_idx).unwrap();
+                solution.push(col_idx);
+            }
+        }
+        solution.reverse();
+        vec.is_zero().then(|| solution)
     }
 
     /// Returns a matrix for which the rows are the generators
@@ -569,6 +643,32 @@ impl SparseBinMat {
     /// ```
     pub fn nullspace(&self) -> Self {
         nullspace(self)
+    }
+
+    pub fn normal_form(&self) -> (Self, Vec<usize>) {
+        normal_form_from_echelon_form(&self.echelon_form())
+    }
+
+    pub fn permute_columns(self: &Self, permutation: &[usize]) -> SparseBinMat {
+        let inverse = Self::inverse_permutation(&permutation);
+        let rows = self
+            .rows()
+            .map(|row| {
+                row.non_trivial_positions()
+                    .map(|column| inverse[column])
+                    .sorted()
+                    .collect()
+            })
+            .collect();
+        SparseBinMat::new(self.number_of_columns(), rows)
+    }
+
+    fn inverse_permutation(permutation: &[usize]) -> Vec<usize> {
+        let mut inverse = vec![0; permutation.len()];
+        for (index, position) in permutation.iter().enumerate() {
+            inverse[*position] = index;
+        }
+        inverse
     }
 
     /// Returns the horizontal concatenation of two matrices.
@@ -939,6 +1039,8 @@ impl std::fmt::Display for SparseBinMat {
 
 #[cfg(test)]
 mod test {
+    use std::vec;
+
     use super::*;
 
     #[test]
@@ -986,5 +1088,115 @@ mod test {
         let matrix_2_2 = SparseBinMat::new(2, vec![vec![0], vec![1]]);
         let result = std::panic::catch_unwind(|| &matrix_6_3 * &matrix_2_2);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn solve_simple_matrix() {
+        let a = SparseBinMat::new(
+            4,
+            vec![vec![0, 1, 3], vec![1, 2], vec![2, 3], vec![], vec![0, 2]],
+        );
+        let b = SparseBinMat::new(4, vec![vec![0], vec![1, 3], vec![2]]);
+        let solution = a.solve(&b).unwrap();
+        let expected = SparseBinMat::new(5, vec![vec![0, 1, 2], vec![1, 2], vec![0, 1, 2, 4]]);
+        assert_eq!(solution, expected);
+    }
+
+    #[test]
+    fn solve_surface_code() {
+        let a = SparseBinMat::new(
+            6,
+            vec![
+                vec![0, 1, 4],
+                vec![1, 2],
+                vec![3, 4],
+                vec![],
+                vec![2],
+                vec![3],
+                vec![5],
+                vec![5],
+                vec![],
+            ],
+        );
+        let b = SparseBinMat::new(6, vec![vec![0], vec![1, 5]]);
+        let solution = a.solve(&b).unwrap();
+        let expected = SparseBinMat::new(9, vec![vec![0, 1, 2, 4, 5], vec![1, 4, 7]]);
+        assert_eq!(solution, expected);
+    }
+
+    #[test]
+    fn solve_surface_code_horizontal_only() {
+        let a = SparseBinMat::new(
+            5,
+            vec![
+                vec![],
+                vec![],
+                vec![],
+                vec![0, 1],
+                vec![1, 2],
+                vec![0, 3],
+                vec![],
+                vec![2, 4],
+                vec![3, 4],
+            ],
+        );
+        let b = SparseBinMat::new(5, vec![vec![2, 3]]);
+        let solution = a.solve(&b).unwrap();
+        let expected = SparseBinMat::new(9, vec![vec![3, 4, 5]]);
+        assert_eq!(solution, expected);
+    }
+
+    #[test]
+    fn solve_surface_code_no_solution() {
+        let a = SparseBinMat::new(
+            5,
+            vec![
+                vec![],
+                vec![],
+                vec![],
+                vec![0, 1],
+                vec![1, 2],
+                vec![0, 3],
+                vec![],
+                vec![2, 4],
+                vec![3, 4],
+            ],
+        );
+        let b = SparseBinMat::new(5, vec![vec![2, 3], vec![1]]);
+        let solution = a.solve(&b);
+        assert!(solution.is_none());
+    }
+
+    #[test]
+    fn permutation() {
+        let permutation = vec![0, 2, 4, 1, 3, 5, 6];
+        let inverse = vec![0, 3, 1, 4, 2, 5, 6];
+        assert_eq!(SparseBinMat::inverse_permutation(&permutation), inverse);
+    }
+
+    #[test]
+    fn column_permutation() {
+        let matrix = SparseBinMat::new(
+            6,
+            vec![
+                vec![0, 1, 2],
+                vec![3, 4, 5],
+                vec![0, 2, 4],
+                vec![1, 3, 5],
+                vec![0, 5],
+            ],
+        );
+        let permutation = vec![1, 0, 2, 4, 5, 3];
+        let expected = SparseBinMat::new(
+            6,
+            vec![
+                vec![0, 1, 2],
+                vec![3, 4, 5],
+                vec![1, 2, 3],
+                vec![0, 4, 5],
+                vec![1, 4],
+            ],
+        );
+        assert_eq!(matrix.permute_columns(&permutation), expected);
     }
 }

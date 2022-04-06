@@ -29,7 +29,7 @@ fn concat_rows_horizontally(
 ) -> Vec<usize> {
     match rows {
         EitherOrBoth::Both(left_row, right_row) => left_row.concat(&right_row).to_positions_vec(),
-        EitherOrBoth::Left(row) => row.to_owned().to_positions_vec(),
+        EitherOrBoth::Left(row) => row.to_vec().to_positions_vec(),
         EitherOrBoth::Right(row) => pad_right_row(pad, row.as_slice()),
     }
 }
@@ -45,7 +45,7 @@ pub(super) fn concat_vertically(
     let rows = top_matrix
         .rows()
         .chain(bottom_matrix.rows())
-        .map(|row| row.to_owned().to_positions_vec())
+        .map(|row| row.to_vec().to_positions_vec())
         .collect();
     let number_of_columns = std::cmp::max(
         top_matrix.number_of_columns(),

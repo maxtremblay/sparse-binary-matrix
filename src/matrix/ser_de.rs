@@ -12,7 +12,7 @@ impl Serialize for SparseBinMat {
     {
         let rows: Vec<_> = self
             .rows()
-            .map(|row| row.to_owned().to_positions_vec())
+            .map(|row| row.to_vec().to_positions_vec())
             .collect();
         let mut state = serializer.serialize_struct("SparseBinMat", 2)?;
         state.serialize_field("number_of_columns", &self.number_of_columns())?;

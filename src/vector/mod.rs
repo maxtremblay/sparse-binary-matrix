@@ -345,7 +345,7 @@ impl<T: Deref<Target = [usize]>> SparseBinVecBase<T> {
     }
 
     /// Returns an owned version of the vector.
-    pub fn to_owned(self) -> SparseBinVec {
+    pub fn to_vec(self) -> SparseBinVec {
         SparseBinVec {
             length: self.length,
             positions: self.positions.to_owned(),

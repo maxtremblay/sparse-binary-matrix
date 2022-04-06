@@ -2,7 +2,7 @@
 name = "sparse-bin-mat"
 version = "0.6.2"
 authors = ["maxtremblay <maxtremblay>"]
-edition = "2018"
+edition = "2021"
 description = "A sparse implementation of a binary matrix optimized for row operations"
 repository = "https://github.com/maxtremblay/sparse-binary-matrix"
 license = "MIT OR Apache-2.0"
